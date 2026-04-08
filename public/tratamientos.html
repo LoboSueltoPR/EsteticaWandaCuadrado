@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tratamientos — Estética Agus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <div id="navbar"></div>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>Información de Tratamientos</h1>
+      <p>Explorá todos nuestros servicios de estética y bienestar</p>
+    </div>
+
+    <!-- Buscador -->
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Buscar tratamiento por nombre...">
+    </div>
+
+    <!-- Filtros por categoría -->
+    <div class="filter-chips">
+      <button class="chip active" data-cat="todos">Todos</button>
+      <button class="chip" data-cat="facial">Facial</button>
+      <button class="chip" data-cat="corporal">Corporal</button>
+      <button class="chip" data-cat="capilar">Capilar</button>
+    </div>
+
+    <!-- Lista de tratamientos -->
+    <div id="tratamientos-list">
+      <div class="loading-overlay"><div class="spinner"></div> Cargando tratamientos...</div>
+    </div>
+
+    <!-- Ficha de detalle (preparada para expansión futura) -->
+    <div id="tratamiento-detalle" class="hidden">
+      <div class="card mt-2">
+        <button class="btn btn-sm btn-secondary mb-2" onclick="cerrarDetalle()">← Volver a la lista</button>
+        <h2 id="detalle-nombre"></h2>
+        <p class="text-muted mb-1" id="detalle-categoria"></p>
+        <p id="detalle-duracion"></p>
+        <div id="detalle-descripcion" class="mt-2">
+          <p class="text-muted" style="font-style: italic;">Próximamente se agregará información detallada sobre este tratamiento.</p>
+        </div>
+        <a href="/nueva-reserva.html" class="btn btn-primary mt-2">Reservar este tratamiento</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/js/firebase-config.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    document.getElementById('navbar').innerHTML = getNavbarHTML();
+    document.getElementById('footer').innerHTML = getFooterHTML();
+    initNavbar();
+
+    let allServices = [];
+
+    // Cargar todos los servicios activos
+    async function loadTratamientos() {
+      const container = document.getElementById('tratamientos-list');
+      try {
+        const snapshot = await db.collection('services')
+          .where('activo', '==', true)
+          .orderBy('categoria')
+          .orderBy('nombre')
+          .get();
+
+        allServices = [];
+        snapshot.forEach(doc => {
+          allServices.push({ id: doc.id, ...doc.data() });
+        });
+
+        renderTratamientos(allServices);
+      } catch (err) {
+        console.error('Error al cargar tratamientos:', err);
+        container.innerHTML = '<div class="alert alert-error">Error al cargar los tratamientos.</div>';
+      }
+    }
+
+    // Renderizar lista
+    function renderTratamientos(services) {
+      const container = document.getElementById('tratamientos-list');
+
+      if (services.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No se encontraron tratamientos.</p></div>';
+        return;
+      }
+
+      let html = '';
+      let currentCat = '';
+
+      services.forEach(s => {
+        if (s.categoria !== currentCat) {
+          currentCat = s.categoria;
+          html += `<h3 class="mt-2 mb-1" style="text-transform: capitalize; color: var(--color-primary-dark);">${currentCat}</h3>`;
+        }
+        html += `
+          <div class="tratamiento-card" onclick="verDetalle('${s.id}')" style="cursor: pointer;">
+            <div class="tratamiento-info">
+              <h3>${s.nombre}</h3>
+              <span class="categoria">${s.categoria}</span>
+            </div>
+            <span class="tratamiento-duracion">${s.duracionMin} min</span>
+          </div>`;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Filtrar por búsqueda
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      const catFilter = document.querySelector('.chip.active').dataset.cat;
+      filterAndRender(query, catFilter);
+    });
+
+    // Filtrar por categoría
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const query = document.getElementById('search-input').value.toLowerCase().trim();
+        filterAndRender(query, chip.dataset.cat);
+      });
+    });
+
+    function filterAndRender(query, cat) {
+      let filtered = allServices;
+      if (cat !== 'todos') {
+        filtered = filtered.filter(s => s.categoria === cat);
+      }
+      if (query) {
+        filtered = filtered.filter(s => s.nombre.toLowerCase().includes(query));
+      }
+      renderTratamientos(filtered);
+    }
+
+    // Ver detalle de tratamiento
+    function verDetalle(serviceId) {
+      const service = allServices.find(s => s.id === serviceId);
+      if (!service) return;
+
+      document.getElementById('detalle-nombre').textContent = service.nombre;
+      document.getElementById('detalle-categoria').textContent = `Categoría: ${service.categoria}`;
+      document.getElementById('detalle-duracion').textContent = `Duración: ${service.duracionMin} minutos`;
+
+      hide('tratamientos-list');
+      hide(document.querySelector('.search-box'));
+      hide(document.querySelector('.filter-chips'));
+      show('tratamiento-detalle');
+    }
+
+    function cerrarDetalle() {
+      hide('tratamiento-detalle');
+      show('tratamientos-list');
+      show(document.querySelector('.search-box'));
+      show(document.querySelector('.filter-chips'));
+    }
+
+    // Inicializar
+    loadTratamientos();
+  </script>
+</body>
+</html>

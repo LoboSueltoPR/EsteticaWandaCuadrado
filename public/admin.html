@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Admin — Estética Agus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <div id="navbar"></div>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>Panel de Administración</h1>
+      <p>Gestioná reservas, servicios y disponibilidad</p>
+    </div>
+
+    <!-- Tabs de navegación -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-reservas">Reservas</button>
+      <button class="tab-btn" data-tab="tab-servicios">Servicios</button>
+      <button class="tab-btn" data-tab="tab-disponibilidad">Disponibilidad</button>
+    </div>
+
+    <!-- ═══ TAB: Reservas ═══ -->
+    <div id="tab-reservas" class="tab-content active">
+      <div class="flex-between mb-2">
+        <h2>Todas las Reservas</h2>
+        <div class="form-group" style="margin-bottom:0; min-width: 160px;">
+          <select class="form-control" id="filtro-estado" onchange="loadAllReservations(this.value)">
+            <option value="todos">Todos los estados</option>
+            <option value="pendiente">Pendientes</option>
+            <option value="confirmada">Confirmadas</option>
+            <option value="cancelada">Canceladas</option>
+          </select>
+        </div>
+      </div>
+      <div id="admin-reservations">
+        <div class="loading-overlay"><div class="spinner"></div> Cargando...</div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: Servicios ═══ -->
+    <div id="tab-servicios" class="tab-content">
+      <div class="flex-between mb-2">
+        <h2>Gestión de Servicios</h2>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="showServiceModal()">+ Nuevo servicio</button>
+          <button class="btn btn-secondary" id="btn-seed" onclick="seedServices()">Cargar servicios iniciales</button>
+        </div>
+      </div>
+      <div id="admin-services-list">
+        <div class="loading-overlay"><div class="spinner"></div> Cargando...</div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: Disponibilidad ═══ -->
+    <div id="tab-disponibilidad" class="tab-content">
+      <h2 class="mb-2">Configuración de Disponibilidad</h2>
+
+      <div class="card">
+        <h3>Horario de atención</h3>
+        <p class="text-muted mb-2">Configurá el rango horario en el que se ofrecen turnos.</p>
+
+        <div id="disponibilidad-alert"></div>
+
+        <form id="disponibilidad-form">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label for="hora-inicio">Hora de inicio</label>
+              <select class="form-control" id="hora-inicio">
+                <option value="8">08:00</option>
+                <option value="9" selected>09:00</option>
+                <option value="10">10:00</option>
+                <option value="11">11:00</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="hora-fin">Hora de fin</label>
+              <select class="form-control" id="hora-fin">
+                <option value="17">17:00</option>
+                <option value="18">18:00</option>
+                <option value="19">19:00</option>
+                <option value="20" selected>20:00</option>
+                <option value="21">21:00</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="intervalo">Duración del turno (minutos)</label>
+            <select class="form-control" id="intervalo">
+              <option value="30">30 minutos</option>
+              <option value="60" selected>60 minutos</option>
+              <option value="90">90 minutos</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">Guardar configuración</button>
+        </form>
+      </div>
+
+      <div class="card mt-2">
+        <h3>Bloquear día completo</h3>
+        <p class="text-muted mb-2">Marcá un día como no disponible (feriados, vacaciones, etc.)</p>
+        <div class="alert alert-info">
+          Esta funcionalidad estará disponible próximamente. Por ahora, la disponibilidad se basa en los horarios configurados arriba.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/js/firebase-config.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/admin.js"></script>
+  <script>
+    document.getElementById('navbar').innerHTML = getNavbarHTML();
+    document.getElementById('footer').innerHTML = getFooterHTML();
+    initNavbar();
+
+    requireAdmin(async (user, userData) => {
+      initAdminTabs();
+      loadAllReservations();
+      loadAllServices();
+
+      // Cargar config de disponibilidad desde Firestore
+      try {
+        const configDoc = await db.collection('config').doc('disponibilidad').get();
+        if (configDoc.exists) {
+          const cfg = configDoc.data();
+          document.getElementById('hora-inicio').value = cfg.horaInicio || 9;
+          document.getElementById('hora-fin').value = cfg.horaFin || 20;
+          document.getElementById('intervalo').value = cfg.intervaloMin || 60;
+        }
+      } catch (err) {
+        console.error('Error al cargar config:', err);
+      }
+
+      // Guardar configuración de disponibilidad
+      document.getElementById('disponibilidad-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          await db.collection('config').doc('disponibilidad').set({
+            horaInicio: parseInt(document.getElementById('hora-inicio').value),
+            horaFin: parseInt(document.getElementById('hora-fin').value),
+            intervaloMin: parseInt(document.getElementById('intervalo').value),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          showAlert('disponibilidad-alert', 'Configuración guardada.', 'success');
+        } catch (err) {
+          console.error('Error al guardar config:', err);
+          showAlert('disponibilidad-alert', 'Error al guardar la configuración.');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

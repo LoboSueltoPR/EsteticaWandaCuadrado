@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Usuarios ───
+    // Cada usuario puede leer y editar solo su propio perfil.
+    // Los admins pueden leer todos los perfiles.
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow delete: if false; // No se eliminan usuarios
+    }
+
+    // ─── Servicios ───
+    // Lectura pública (para mostrar en la web).
+    // Solo admins pueden crear, editar o eliminar servicios.
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null && isAdmin();
+    }
+
+    // ─── Reservas ───
+    // Un cliente solo puede leer/editar sus propias reservas.
+    // Un admin puede leer y editar todas las reservas.
+    match /reservations/{reservationId} {
+      allow read: if request.auth != null &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if request.auth != null && isAdmin();
+    }
+
+    // ─── Configuración de disponibilidad ───
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && isAdmin();
+    }
+
+    // ─── Función auxiliar: verificar si el usuario es admin ───
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'admin';
+    }
+  }
+}

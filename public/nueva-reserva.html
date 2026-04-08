@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nueva Reserva — Estética Agus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <div id="navbar"></div>
+
+  <div class="container-sm">
+    <div class="page-header">
+      <h1>Reservar Turno</h1>
+      <p>Elegí tu servicio, fecha y horario</p>
+    </div>
+
+    <div class="card">
+      <div id="reserva-alert"></div>
+
+      <form id="reserva-form" onsubmit="handleCreateReservation(event)">
+        <!-- Servicio -->
+        <div class="form-group">
+          <label for="reserva-servicio">Servicio</label>
+          <select class="form-control" id="reserva-servicio" required>
+            <option value="">Cargando servicios...</option>
+          </select>
+        </div>
+
+        <!-- Fecha -->
+        <div class="form-group">
+          <label for="reserva-fecha">Fecha</label>
+          <input type="date" class="form-control" id="reserva-fecha" required>
+        </div>
+
+        <!-- Horarios -->
+        <div class="form-group">
+          <label>Horario disponible</label>
+          <div id="time-slots-container">
+            <p class="text-muted">Seleccioná una fecha para ver los horarios disponibles.</p>
+          </div>
+          <input type="hidden" id="selected-time" value="">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Confirmar Reserva</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="footer"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/js/firebase-config.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/reservas.js"></script>
+  <script>
+    document.getElementById('navbar').innerHTML = getNavbarHTML();
+    document.getElementById('footer').innerHTML = getFooterHTML();
+    initNavbar();
+
+    requireAuth(async (user, userData) => {
+      // Cargar servicios
+      await loadServicesSelect('reserva-servicio');
+
+      // Fecha mínima = hoy
+      const fechaInput = document.getElementById('reserva-fecha');
+      fechaInput.min = getTodayStr();
+
+      // Cuando cambia la fecha, cargar horarios
+      fechaInput.addEventListener('change', () => {
+        document.getElementById('selected-time').value = '';
+        renderTimeSlots('time-slots-container', fechaInput.value);
+      });
+    });
+  </script>
+</body>
+</html>
