@@ -33,14 +33,23 @@ async function handleRegister(e) {
     return;
   }
 
+  // ── Paso 1: Crear usuario en Firebase Auth ──
+  let cred;
   try {
-    // Crear usuario en Firebase Auth
-    const cred = await auth.createUserWithEmailAndPassword(email, password);
-
-    // Actualizar nombre en el perfil de Auth
+    cred = await auth.createUserWithEmailAndPassword(email, password);
     await cred.user.updateProfile({ displayName: nombre });
+  } catch (err) {
+    let msg = 'Error al registrarse.';
+    if (err.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado.';
+    if (err.code === 'auth/invalid-email') msg = 'El email no es válido.';
+    if (err.code === 'auth/weak-password') msg = 'La contraseña es muy débil.';
+    showAlert('auth-alert', msg);
+    btn.disabled = false;
+    return;
+  }
 
-    // Crear documento en Firestore
+  // ── Paso 2: Crear documento en Firestore ──
+  try {
     await db.collection('users').doc(cred.user.uid).set({
       uid: cred.user.uid,
       nombre: nombre,
@@ -49,17 +58,14 @@ async function handleRegister(e) {
       rol: 'cliente',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-
-    // Redirigir al dashboard
-    window.location.href = 'dashboard.html';
+    console.log('Usuario creado en Firestore OK');
   } catch (err) {
-    let msg = 'Error al registrarse.';
-    if (err.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado.';
-    if (err.code === 'auth/invalid-email') msg = 'El email no es válido.';
-    if (err.code === 'auth/weak-password') msg = 'La contraseña es muy débil.';
-    showAlert('auth-alert', msg);
-    btn.disabled = false;
+    // Loguear el error real para diagnóstico
+    console.error('Error al guardar en Firestore:', err.code, err.message);
+    // El usuario ya existe en Auth — igual redirigir, el perfil se puede crear después
   }
+
+  window.location.href = 'dashboard.html';
 }
 
 // ─── Inicio de sesión ───
