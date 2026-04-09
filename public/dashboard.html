@@ -3,49 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mi Panel — Wanda Cuadrado</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <title>Wanda Cuadrado</title>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-
-  <div id="navbar"></div>
-
-  <div class="container">
-    <div class="page-header">
-      <h1>Mi Panel</h1>
-      <p id="welcome-msg">Cargando...</p>
-    </div>
-
-    <!-- Info del usuario -->
-    <div class="card-grid">
-      <div class="card">
-        <h3>Mis Datos</h3>
-        <div id="user-info" class="mt-1">
-          <div class="loading-overlay"><div class="spinner"></div></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Acciones rápidas</h3>
-        <div class="mt-1" style="display: flex; flex-direction: column; gap: 0.8rem;">
-          <a href="nueva-reserva.html" class="btn btn-primary">Reservar nuevo turno</a>
-          <a href="mis-reservas.html" class="btn btn-secondary">Ver mis reservas</a>
-          <a href="tratamientos.html" class="btn btn-secondary">Explorar tratamientos</a>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Próximas reservas</h3>
-        <div id="upcoming-reservations" class="mt-1">
-          <div class="loading-overlay"><div class="spinner"></div></div>
-        </div>
-      </div>
-    </div>
+  <!-- Página de transición: redirige según rol -->
+  <div class="loading-overlay" style="height:100vh">
+    <div class="spinner"></div>
   </div>
-
-  <div id="footer"></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -53,58 +18,11 @@
   <script src="js/firebase-config.js"></script>
   <script src="js/utils.js"></script>
   <script>
-    document.getElementById('navbar').innerHTML = getNavbarHTML();
-    document.getElementById('footer').innerHTML = getFooterHTML();
-    initNavbar();
-
-    requireAuth(async (user, userData) => {
-      // Mostrar saludo
-      const nombre = userData ? userData.nombre : user.displayName || user.email;
-      document.getElementById('welcome-msg').textContent = `Hola, ${nombre} 👋`;
-
-      // Mostrar datos del usuario
-      const infoContainer = document.getElementById('user-info');
-      infoContainer.innerHTML = `
-        <p><strong>Nombre:</strong> ${userData ? userData.nombre : user.displayName || '-'}</p>
-        <p><strong>Email:</strong> ${user.email}</p>
-        <p><strong>Teléfono:</strong> ${userData && userData.telefono ? userData.telefono : 'No registrado'}</p>
-        <p><strong>Rol:</strong> ${userData ? userData.rol : 'cliente'}</p>
-      `;
-
-      // Cargar próximas reservas
-      const today = getTodayStr();
-      try {
-        const snapshot = await db.collection('reservations')
-          .where('userId', '==', user.uid)
-          .where('fecha', '>=', today)
-          .where('estado', 'in', ['pendiente', 'confirmada'])
-          .orderBy('fecha')
-          .orderBy('hora')
-          .limit(5)
-          .get();
-
-        const container = document.getElementById('upcoming-reservations');
-
-        if (snapshot.empty) {
-          container.innerHTML = '<p class="text-muted">No tenés turnos próximos.</p>';
-          return;
-        }
-
-        let html = '';
-        snapshot.forEach(doc => {
-          const r = doc.data();
-          html += `
-            <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--color-border);">
-              <strong>${r.servicioNombre}</strong><br>
-              <span class="text-muted">${formatDate(r.fecha)} a las ${r.hora}</span>
-              <span class="badge badge-${r.estado}" style="margin-left: 0.5rem;">${r.estado}</span>
-            </div>`;
-        });
-        container.innerHTML = html;
-      } catch (err) {
-        console.error('Error al cargar reservas:', err);
-        document.getElementById('upcoming-reservations').innerHTML =
-          '<p class="text-muted">Error al cargar reservas.</p>';
+    requireAuth((user, userData) => {
+      if (userData && userData.rol === 'admin') {
+        window.location.href = 'admin.html';
+      } else {
+        window.location.href = 'mis-reservas.html';
       }
     });
   </script>

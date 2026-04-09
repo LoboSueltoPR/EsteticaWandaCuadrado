@@ -13,12 +13,45 @@
   <div id="navbar"></div>
 
   <div class="container">
+
+    <!-- Encabezado -->
     <div class="page-header">
       <h1>Panel de Administración</h1>
-      <p>Gestioná reservas, servicios y disponibilidad</p>
+      <p id="admin-fecha">Cargando...</p>
     </div>
 
-    <!-- Tabs de navegación -->
+    <!-- ═══ STATS DEL DÍA ═══ -->
+    <div class="admin-stats">
+      <div class="stat-card">
+        <span class="stat-num" id="stat-hoy">—</span>
+        <span class="stat-label">Turnos hoy</span>
+      </div>
+      <div class="stat-card stat-card--pending">
+        <span class="stat-num" id="stat-pendientes">—</span>
+        <span class="stat-label">Pendientes</span>
+      </div>
+      <div class="stat-card stat-card--confirmed">
+        <span class="stat-num" id="stat-confirmadas">—</span>
+        <span class="stat-label">Confirmadas</span>
+      </div>
+      <div class="stat-card stat-card--week">
+        <span class="stat-num" id="stat-semana">—</span>
+        <span class="stat-label">Esta semana</span>
+      </div>
+    </div>
+
+    <!-- ═══ AGENDA DE HOY ═══ -->
+    <div class="card mb-3">
+      <div class="flex-between mb-1">
+        <h3>Agenda de hoy</h3>
+        <button class="btn btn-sm btn-secondary" onclick="loadAgendaHoy()">Actualizar</button>
+      </div>
+      <div id="agenda-hoy">
+        <div class="loading-overlay"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ═══ TABS ═══ -->
     <div class="tabs">
       <button class="tab-btn active" data-tab="tab-reservas">Reservas</button>
       <button class="tab-btn" data-tab="tab-servicios">Servicios</button>
@@ -27,15 +60,22 @@
 
     <!-- ═══ TAB: Reservas ═══ -->
     <div id="tab-reservas" class="tab-content active">
-      <div class="flex-between mb-2">
+      <div class="flex-between mb-2" style="flex-wrap:wrap; gap:0.8rem;">
         <h2>Todas las Reservas</h2>
-        <div class="form-group" style="margin-bottom:0; min-width: 160px;">
-          <select class="form-control" id="filtro-estado" onchange="loadAllReservations(this.value)">
+        <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
+          <input type="date" class="form-control" id="filtro-fecha" style="width:auto"
+            onchange="loadAllReservations(document.getElementById('filtro-estado').value, this.value)">
+          <select class="form-control" id="filtro-estado" style="width:auto"
+            onchange="loadAllReservations(this.value, document.getElementById('filtro-fecha').value)">
             <option value="todos">Todos los estados</option>
             <option value="pendiente">Pendientes</option>
             <option value="confirmada">Confirmadas</option>
             <option value="cancelada">Canceladas</option>
           </select>
+          <button class="btn btn-sm btn-secondary"
+            onclick="document.getElementById('filtro-fecha').value=''; document.getElementById('filtro-estado').value='todos'; loadAllReservations();">
+            Limpiar filtros
+          </button>
         </div>
       </div>
       <div id="admin-reservations">
@@ -45,7 +85,7 @@
 
     <!-- ═══ TAB: Servicios ═══ -->
     <div id="tab-servicios" class="tab-content">
-      <div class="flex-between mb-2">
+      <div class="flex-between mb-2" style="flex-wrap:wrap; gap:0.8rem;">
         <h2>Gestión de Servicios</h2>
         <div class="btn-group">
           <button class="btn btn-primary" onclick="showServiceModal()">+ Nuevo servicio</button>
@@ -59,18 +99,68 @@
 
     <!-- ═══ TAB: Disponibilidad ═══ -->
     <div id="tab-disponibilidad" class="tab-content">
-      <h2 class="mb-2">Configuración de Disponibilidad</h2>
+      <h2 class="mb-2">Gestión de Disponibilidad</h2>
 
-      <div class="card">
-        <h3>Horario de atención</h3>
-        <p class="text-muted mb-2">Configurá el rango horario en el que se ofrecen turnos.</p>
+      <div id="bloqueo-alert"></div>
 
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;" class="disponibilidad-grid">
+
+        <!-- Bloquear día completo -->
+        <div class="card">
+          <h3 class="mb-1">Bloquear día completo</h3>
+          <p class="text-muted mb-2" style="font-size:0.85rem">
+            Feriados, vacaciones o días sin atención. Los clientes no podrán reservar ese día.
+          </p>
+          <div class="form-group">
+            <label>Seleccioná el día a bloquear</label>
+            <input type="date" class="form-control" id="bloqueo-fecha">
+          </div>
+          <button class="btn btn-primary btn-block" onclick="bloquearDia()">Bloquear día</button>
+
+          <div class="mt-2">
+            <h4 style="font-size:0.9rem; margin-bottom:0.5rem; color:var(--color-text-light)">Días bloqueados:</h4>
+            <div id="dias-bloqueados-list">
+              <div class="loading-overlay" style="padding:1rem 0"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bloquear horario específico -->
+        <div class="card">
+          <h3 class="mb-1">Bloquear horario específico</h3>
+          <p class="text-muted mb-2" style="font-size:0.85rem">
+            Bloqueá un horario puntual en una fecha determinada (reunión, descanso, etc).
+          </p>
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" class="form-control" id="bloqueo-hora-fecha"
+              onchange="renderHorariosBloqueados(this.value)">
+          </div>
+          <div class="form-group">
+            <label>Horario a bloquear</label>
+            <select class="form-control" id="bloqueo-hora-select"></select>
+          </div>
+          <button class="btn btn-primary btn-block" onclick="bloquearHorario()">Bloquear horario</button>
+
+          <div class="mt-2">
+            <h4 style="font-size:0.9rem; margin-bottom:0.5rem; color:var(--color-text-light)">Horarios bloqueados ese día:</h4>
+            <div id="horarios-bloqueados-list">
+              <p class="text-muted" style="font-size:0.85rem">Seleccioná una fecha para ver.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Horario de atención general -->
+      <div class="card mt-2">
+        <h3 class="mb-1">Horario de atención</h3>
+        <p class="text-muted mb-2" style="font-size:0.85rem">Rango general de turnos ofrecidos cada día.</p>
         <div id="disponibilidad-alert"></div>
-
         <form id="disponibilidad-form">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem;">
             <div class="form-group">
-              <label for="hora-inicio">Hora de inicio</label>
+              <label>Hora de inicio</label>
               <select class="form-control" id="hora-inicio">
                 <option value="8">08:00</option>
                 <option value="9" selected>09:00</option>
@@ -79,7 +169,7 @@
               </select>
             </div>
             <div class="form-group">
-              <label for="hora-fin">Hora de fin</label>
+              <label>Hora de fin</label>
               <select class="form-control" id="hora-fin">
                 <option value="17">17:00</option>
                 <option value="18">18:00</option>
@@ -88,25 +178,17 @@
                 <option value="21">21:00</option>
               </select>
             </div>
-          </div>
-          <div class="form-group">
-            <label for="intervalo">Duración del turno (minutos)</label>
-            <select class="form-control" id="intervalo">
-              <option value="30">30 minutos</option>
-              <option value="60" selected>60 minutos</option>
-              <option value="90">90 minutos</option>
-            </select>
+            <div class="form-group">
+              <label>Duración del turno</label>
+              <select class="form-control" id="intervalo">
+                <option value="30">30 minutos</option>
+                <option value="60" selected>60 minutos</option>
+                <option value="90">90 minutos</option>
+              </select>
+            </div>
           </div>
           <button type="submit" class="btn btn-primary">Guardar configuración</button>
         </form>
-      </div>
-
-      <div class="card mt-2">
-        <h3>Bloquear día completo</h3>
-        <p class="text-muted mb-2">Marcá un día como no disponible (feriados, vacaciones, etc.)</p>
-        <div class="alert alert-info">
-          Esta funcionalidad estará disponible próximamente. Por ahora, la disponibilidad se basa en los horarios configurados arriba.
-        </div>
       </div>
     </div>
   </div>
@@ -125,11 +207,19 @@
     initNavbar();
 
     requireAdmin(async (user, userData) => {
+      // Mostrar fecha de hoy en el encabezado
+      const hoy = new Date().toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+      document.getElementById('admin-fecha').textContent = hoy.charAt(0).toUpperCase() + hoy.slice(1);
+
       initAdminTabs();
+      loadAdminStats();
+      loadAgendaHoy();
       loadAllReservations();
       loadAllServices();
+      renderDiasBloqueados();
+      initHorariosBloqueadosSelect();
 
-      // Cargar config de disponibilidad desde Firestore
+      // Cargar config horario
       try {
         const configDoc = await db.collection('config').doc('disponibilidad').get();
         if (configDoc.exists) {
@@ -138,11 +228,9 @@
           document.getElementById('hora-fin').value = cfg.horaFin || 20;
           document.getElementById('intervalo').value = cfg.intervaloMin || 60;
         }
-      } catch (err) {
-        console.error('Error al cargar config:', err);
-      }
+      } catch (err) { console.error('Error config:', err); }
 
-      // Guardar configuración de disponibilidad
+      // Guardar config horario
       document.getElementById('disponibilidad-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
@@ -153,9 +241,8 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
           showAlert('disponibilidad-alert', 'Configuración guardada.', 'success');
-        } catch (err) {
-          console.error('Error al guardar config:', err);
-          showAlert('disponibilidad-alert', 'Error al guardar la configuración.');
+        } catch {
+          showAlert('disponibilidad-alert', 'Error al guardar.');
         }
       });
     });

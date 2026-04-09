@@ -18,7 +18,6 @@ function showAlert(containerId, message, type = 'error') {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-  // Auto-ocultar después de 5 segundos
   setTimeout(() => { container.innerHTML = ''; }, 5000);
 }
 
@@ -42,7 +41,7 @@ function formatDateTime(timestamp) {
   });
 }
 
-// ─── Obtener fecha mínima (hoy) en formato YYYY-MM-DD ───
+// ─── Fecha de hoy en formato YYYY-MM-DD ───
 function getTodayStr() {
   const now = new Date();
   return now.toISOString().split('T')[0];
@@ -55,7 +54,6 @@ function requireAuth(callback) {
       window.location.href = 'login.html';
       return;
     }
-    // Obtener datos del usuario de Firestore
     try {
       const userDoc = await db.collection('users').doc(user.uid).get();
       const userData = userDoc.exists ? userDoc.data() : null;
@@ -71,23 +69,20 @@ function requireAuth(callback) {
 function requireAdmin(callback) {
   requireAuth((user, userData) => {
     if (!userData || userData.rol !== 'admin') {
-      window.location.href = 'dashboard.html';
+      window.location.href = 'mis-reservas.html';
       return;
     }
     callback(user, userData);
   });
 }
 
-// ─── Actualizar navbar según estado de auth ───
+// ─── Navbar: diferenciar admin vs cliente ───
 function initNavbar() {
   const toggle = document.querySelector('.navbar-toggle');
   const links = document.querySelector('.navbar-links');
 
   if (toggle && links) {
-    toggle.addEventListener('click', () => {
-      links.classList.toggle('open');
-    });
-    // Cerrar menu al hacer click en un link
+    toggle.addEventListener('click', () => links.classList.toggle('open'));
     links.querySelectorAll('a').forEach(link => {
       link.addEventListener('click', () => links.classList.remove('open'));
     });
@@ -95,28 +90,36 @@ function initNavbar() {
 
   auth.onAuthStateChanged(async (user) => {
     const guestLinks = document.querySelectorAll('.nav-guest');
-    const authLinks = document.querySelectorAll('.nav-auth');
+    const authLinks  = document.querySelectorAll('.nav-auth');
     const adminLinks = document.querySelectorAll('.nav-admin');
+    const clientLinks = document.querySelectorAll('.nav-client');
 
     if (user) {
       guestLinks.forEach(el => el.style.display = 'none');
       authLinks.forEach(el => el.style.display = '');
 
-      // Verificar si es admin
       try {
         const userDoc = await db.collection('users').doc(user.uid).get();
-        if (userDoc.exists && userDoc.data().rol === 'admin') {
+        const isAdmin = userDoc.exists && userDoc.data().rol === 'admin';
+
+        if (isAdmin) {
+          // Admin: muestra panel admin, oculta links de cliente
           adminLinks.forEach(el => el.style.display = '');
+          clientLinks.forEach(el => el.style.display = 'none');
         } else {
+          // Cliente: muestra links propios, oculta admin
           adminLinks.forEach(el => el.style.display = 'none');
+          clientLinks.forEach(el => el.style.display = '');
         }
       } catch {
         adminLinks.forEach(el => el.style.display = 'none');
+        clientLinks.forEach(el => el.style.display = '');
       }
     } else {
       guestLinks.forEach(el => el.style.display = '');
       authLinks.forEach(el => el.style.display = 'none');
       adminLinks.forEach(el => el.style.display = 'none');
+      clientLinks.forEach(el => el.style.display = 'none');
     }
   });
 }
@@ -128,36 +131,61 @@ function logout() {
   });
 }
 
-// ─── Generar horarios disponibles para un día ───
+// ─── Generar todos los horarios del día ───
 function generateTimeSlots(startHour = 9, endHour = 20, intervalMin = 60) {
   const slots = [];
   for (let h = startHour; h < endHour; h++) {
     for (let m = 0; m < 60; m += intervalMin) {
-      const hour = String(h).padStart(2, '0');
-      const min = String(m).padStart(2, '0');
-      slots.push(`${hour}:${min}`);
+      slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
     }
   }
   return slots;
 }
 
-// ─── Obtener horarios ocupados para una fecha ───
+// ─── Horarios ocupados para una fecha (reservas + bloqueos) ───
 async function getOccupiedSlots(fecha, excludeReservationId = null) {
-  let query = db.collection('reservations')
-    .where('fecha', '==', fecha)
-    .where('estado', 'in', ['pendiente', 'confirmada']);
+  const occupied = new Set();
 
-  const snapshot = await query.get();
-  const occupied = [];
-  snapshot.forEach(doc => {
-    if (doc.id !== excludeReservationId) {
-      occupied.push(doc.data().hora);
+  // 1. Verificar bloqueos de Firestore
+  try {
+    const bloqueosDoc = await db.collection('config').doc('bloqueos').get();
+    if (bloqueosDoc.exists) {
+      const bloqueos = bloqueosDoc.data();
+
+      // Día completo bloqueado → devolver todos los horarios
+      if (bloqueos.diasBloqueados && bloqueos.diasBloqueados.includes(fecha)) {
+        return generateTimeSlots(9, 20, 60); // todo bloqueado
+      }
+
+      // Horarios específicos bloqueados ese día
+      if (bloqueos.horariosBloqueados && bloqueos.horariosBloqueados[fecha]) {
+        bloqueos.horariosBloqueados[fecha].forEach(h => occupied.add(h));
+      }
     }
-  });
-  return occupied;
+  } catch (err) {
+    console.warn('No se pudieron cargar bloqueos:', err.message);
+  }
+
+  // 2. Reservas confirmadas/pendientes ese día
+  try {
+    const snapshot = await db.collection('reservations')
+      .where('fecha', '==', fecha)
+      .where('estado', 'in', ['pendiente', 'confirmada'])
+      .get();
+
+    snapshot.forEach(doc => {
+      if (doc.id !== excludeReservationId) {
+        occupied.add(doc.data().hora);
+      }
+    });
+  } catch (err) {
+    console.error('Error al consultar reservas:', err);
+  }
+
+  return Array.from(occupied);
 }
 
-// ─── Crear el HTML del navbar (componente reutilizable) ───
+// ─── Navbar HTML (cliente vs admin diferenciados) ───
 function getNavbarHTML() {
   return `
   <nav class="navbar">
@@ -169,10 +197,15 @@ function getNavbarHTML() {
       <ul class="navbar-links">
         <li><a href="index.html">Inicio</a></li>
         <li><a href="tratamientos.html">Tratamientos</a></li>
-        <li class="nav-auth" style="display:none"><a href="dashboard.html">Mi Panel</a></li>
-        <li class="nav-auth" style="display:none"><a href="mis-reservas.html">Mis Reservas</a></li>
-        <li class="nav-auth" style="display:none"><a href="nueva-reserva.html">Reservar</a></li>
-        <li class="nav-admin" style="display:none"><a href="admin.html">Admin</a></li>
+
+        <!-- Solo clientes -->
+        <li class="nav-auth nav-client" style="display:none"><a href="mis-reservas.html">Mis Reservas</a></li>
+        <li class="nav-auth nav-client" style="display:none"><a href="nueva-reserva.html">Reservar turno</a></li>
+
+        <!-- Solo admin -->
+        <li class="nav-admin" style="display:none"><a href="admin.html">Panel Admin</a></li>
+
+        <!-- Ambos -->
         <li class="nav-guest"><a href="login.html">Ingresar</a></li>
         <li class="nav-guest"><a href="register.html">Registrarse</a></li>
         <li class="nav-auth" style="display:none"><a href="#" onclick="logout(); return false;">Salir</a></li>
@@ -181,11 +214,11 @@ function getNavbarHTML() {
   </nav>`;
 }
 
-// ─── Footer reutilizable ───
+// ─── Footer ───
 function getFooterHTML() {
   const year = new Date().getFullYear();
   return `
   <footer class="footer">
-    <p>Wanda Cuadrado &copy; ${year} — Todos los derechos reservados</p>
+    <p>Wanda Cuadrado &copy; ${year} — Estética y Bienestar</p>
   </footer>`;
 }

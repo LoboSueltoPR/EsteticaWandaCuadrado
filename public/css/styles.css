@@ -751,6 +751,145 @@ tbody tr:hover {
 .hidden { display: none !important; }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 
+/* ─── Stats Admin ─── */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.2rem 1rem;
+  text-align: center;
+  border-top: 3px solid var(--color-primary-light);
+}
+
+.stat-card--pending  { border-top-color: var(--color-warning); }
+.stat-card--confirmed { border-top-color: var(--color-success); }
+.stat-card--week     { border-top-color: var(--color-accent); }
+
+.stat-num {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--color-primary-dark);
+  line-height: 1;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Agenda del día ─── */
+.agenda-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.agenda-item:last-child { border-bottom: none; }
+
+.agenda-hora {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-primary-dark);
+  min-width: 50px;
+}
+
+.agenda-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.agenda-info span {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* ─── Bloqueos ─── */
+.bloqueo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.bloqueo-item:last-child { border-bottom: none; }
+
+.disponibilidad-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* ─── Perfil de usuario (mis-reservas) ─── */
+.user-profile-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.user-profile-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-profile-bar h2 {
+  margin-bottom: 0.1rem;
+  font-size: 1.2rem;
+}
+
+.user-profile-bar p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* ─── Próximo turno destacado ─── */
+.proximo-turno-card {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-bg-alt));
+  border: 1px solid var(--color-primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.proximo-turno-card h3 {
+  color: var(--color-primary-dark);
+  margin-bottom: 0.2rem;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 768px) {
   .navbar-links {
@@ -812,15 +951,18 @@ tbody tr:hover {
 }
 
 @media (max-width: 480px) {
-  .hero h1 {
-    font-size: 1.6rem;
-  }
+  .hero h1 { font-size: 1.6rem; }
+  .btn-group { flex-direction: column; }
+  .modal { padding: 1.5rem; }
+}
 
-  .btn-group {
-    flex-direction: column;
-  }
+@media (max-width: 900px) {
+  .admin-stats { grid-template-columns: repeat(2, 1fr); }
+  .disponibilidad-grid { grid-template-columns: 1fr !important; }
+}
 
-  .modal {
-    padding: 1.5rem;
-  }
+@media (max-width: 600px) {
+  .admin-stats { grid-template-columns: repeat(2, 1fr); }
+  .user-profile-bar { flex-direction: column; align-items: flex-start; }
+  .proximo-turno-card { flex-direction: column; align-items: flex-start; }
 }

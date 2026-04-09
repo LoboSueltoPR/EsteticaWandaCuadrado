@@ -15,17 +15,89 @@ function initAdminTabs() {
   });
 }
 
-// ─── RESERVAS: Cargar todas ───
-async function loadAllReservations(filtroEstado = 'todos') {
+// ─── STATS: Métricas del día y semana ───
+async function loadAdminStats() {
+  const today = getTodayStr();
+  const now = new Date();
+  const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const mondayStr = monday.toISOString().split('T')[0];
+  const sundayStr = sunday.toISOString().split('T')[0];
+
+  try {
+    const snapshot = await db.collection('reservations').get();
+    let hoy = 0, pendientes = 0, semana = 0, confirmadas = 0;
+    snapshot.forEach(doc => {
+      const r = doc.data();
+      if (r.fecha === today && r.estado !== 'cancelada') hoy++;
+      if (r.estado === 'pendiente') pendientes++;
+      if (r.estado === 'confirmada') confirmadas++;
+      if (r.fecha >= mondayStr && r.fecha <= sundayStr && r.estado !== 'cancelada') semana++;
+    });
+    document.getElementById('stat-hoy').textContent = hoy;
+    document.getElementById('stat-pendientes').textContent = pendientes;
+    document.getElementById('stat-semana').textContent = semana;
+    document.getElementById('stat-confirmadas').textContent = confirmadas;
+  } catch (err) {
+    console.error('Error al cargar stats:', err);
+  }
+}
+
+// ─── AGENDA DEL DÍA ───
+async function loadAgendaHoy() {
+  const today = getTodayStr();
+  const container = document.getElementById('agenda-hoy');
+  container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+
+  try {
+    const snapshot = await db.collection('reservations')
+      .where('fecha', '==', today)
+      .orderBy('hora')
+      .get();
+
+    let html = '';
+    snapshot.forEach(doc => {
+      const r = doc.data();
+      if (r.estado === 'cancelada') return;
+      html += `
+        <div class="agenda-item">
+          <div class="agenda-hora">${r.hora}</div>
+          <div class="agenda-info">
+            <strong>${r.servicioNombre}</strong>
+            <span class="text-muted">${r.nombreUsuario || r.emailUsuario}</span>
+          </div>
+          <span class="badge badge-${r.estado}">${r.estado}</span>
+        </div>`;
+    });
+
+    container.innerHTML = html || '<p class="text-muted" style="padding:0.5rem 0">No hay turnos activos para hoy.</p>';
+  } catch (err) {
+    container.innerHTML = '<p class="text-muted">Error al cargar.</p>';
+  }
+}
+
+// ─── RESERVAS: Cargar con filtros ───
+async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
   const container = document.getElementById('admin-reservations');
   container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Cargando...</div>';
 
   try {
-    let query = db.collection('reservations').orderBy('fecha', 'desc').orderBy('hora', 'desc');
-    const snapshot = await query.get();
+    const snapshot = await db.collection('reservations')
+      .orderBy('fecha', 'desc')
+      .orderBy('hora', 'desc')
+      .get();
 
-    if (snapshot.empty) {
-      container.innerHTML = '<div class="empty-state"><p>No hay reservas.</p></div>';
+    let reservas = [];
+    snapshot.forEach(doc => reservas.push({ id: doc.id, ...doc.data() }));
+
+    if (filtroEstado !== 'todos') reservas = reservas.filter(r => r.estado === filtroEstado);
+    if (filtroFecha) reservas = reservas.filter(r => r.fecha === filtroFecha);
+
+    if (reservas.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>No hay reservas con esos filtros.</p></div>';
       return;
     }
 
@@ -34,34 +106,32 @@ async function loadAllReservations(filtroEstado = 'todos') {
       <table>
         <thead>
           <tr>
-            <th>Cliente</th>
-            <th>Email</th>
-            <th>Servicio</th>
             <th>Fecha</th>
             <th>Hora</th>
+            <th>Cliente</th>
+            <th>Servicio</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>`;
 
-    snapshot.forEach(doc => {
-      const r = doc.data();
-      if (filtroEstado !== 'todos' && r.estado !== filtroEstado) return;
-
+    reservas.forEach(r => {
       html += `
           <tr>
-            <td>${r.nombreUsuario || 'Sin nombre'}</td>
-            <td>${r.emailUsuario || ''}</td>
-            <td>${r.servicioNombre}</td>
             <td>${formatDate(r.fecha)}</td>
-            <td>${r.hora}</td>
+            <td><strong>${r.hora}</strong></td>
+            <td>
+              <span>${r.nombreUsuario || 'Sin nombre'}</span><br>
+              <small class="text-muted">${r.emailUsuario || ''}</small>
+            </td>
+            <td>${r.servicioNombre}</td>
             <td><span class="badge badge-${r.estado}">${r.estado}</span></td>
             <td>
               <div class="btn-group">
-                <button class="btn btn-sm btn-success" onclick="updateReservationStatus('${doc.id}', 'confirmada')" title="Confirmar">Confirmar</button>
-                <button class="btn btn-sm btn-danger" onclick="updateReservationStatus('${doc.id}', 'cancelada')" title="Cancelar">Cancelar</button>
-                <button class="btn btn-sm btn-secondary" onclick="updateReservationStatus('${doc.id}', 'pendiente')" title="Pendiente">Pendiente</button>
+                ${r.estado !== 'confirmada' ? `<button class="btn btn-sm btn-success" onclick="updateReservationStatus('${r.id}','confirmada')">Confirmar</button>` : ''}
+                ${r.estado !== 'pendiente'  ? `<button class="btn btn-sm btn-secondary" onclick="updateReservationStatus('${r.id}','pendiente')">Pendiente</button>` : ''}
+                ${r.estado !== 'cancelada'  ? `<button class="btn btn-sm btn-danger" onclick="updateReservationStatus('${r.id}','cancelada')">Cancelar</button>` : ''}
               </div>
             </td>
           </tr>`;
@@ -71,7 +141,7 @@ async function loadAllReservations(filtroEstado = 'todos') {
     container.innerHTML = html;
   } catch (err) {
     console.error('Error al cargar reservas:', err);
-    container.innerHTML = '<div class="alert alert-error">Error al cargar reservas. Verificá los índices de Firestore.</div>';
+    container.innerHTML = '<div class="alert alert-error">Error al cargar reservas.</div>';
   }
 }
 
@@ -82,11 +152,12 @@ async function updateReservationStatus(id, nuevoEstado) {
       estado: nuevoEstado,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    // Recargar con filtro actual
-    const filtro = document.getElementById('filtro-estado');
-    loadAllReservations(filtro ? filtro.value : 'todos');
+    const filtroEstado = document.getElementById('filtro-estado').value;
+    const filtroFecha = document.getElementById('filtro-fecha').value;
+    loadAllReservations(filtroEstado, filtroFecha);
+    loadAdminStats();
+    loadAgendaHoy();
   } catch (err) {
-    console.error('Error al actualizar estado:', err);
     alert('Error al actualizar el estado.');
   }
 }
@@ -97,13 +168,10 @@ async function loadAllServices() {
   container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Cargando...</div>';
 
   try {
-    const snapshot = await db.collection('services')
-      .orderBy('categoria')
-      .orderBy('nombre')
-      .get();
+    const snapshot = await db.collection('services').orderBy('categoria').orderBy('nombre').get();
 
     if (snapshot.empty) {
-      container.innerHTML = '<div class="empty-state"><p>No hay servicios. Creá el primero o cargá los datos iniciales.</p></div>';
+      container.innerHTML = '<div class="empty-state"><p>No hay servicios. Usá el botón para cargar los iniciales.</p></div>';
       return;
     }
 
@@ -111,13 +179,7 @@ async function loadAllServices() {
     <div class="table-responsive">
       <table>
         <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Categoría</th>
-            <th>Duración</th>
-            <th>Activo</th>
-            <th>Acciones</th>
-          </tr>
+          <tr><th>Nombre</th><th>Categoría</th><th>Duración</th><th>Activo</th><th>Acciones</th></tr>
         </thead>
         <tbody>`;
 
@@ -126,13 +188,13 @@ async function loadAllServices() {
       html += `
           <tr>
             <td>${s.nombre}</td>
-            <td style="text-transform: capitalize;">${s.categoria}</td>
+            <td style="text-transform:capitalize">${s.categoria}</td>
             <td>${s.duracionMin} min</td>
             <td><span class="badge ${s.activo ? 'badge-confirmada' : 'badge-cancelada'}">${s.activo ? 'Sí' : 'No'}</span></td>
             <td>
               <div class="btn-group">
                 <button class="btn btn-sm btn-secondary" onclick="editServiceModal('${doc.id}')">Editar</button>
-                <button class="btn btn-sm ${s.activo ? 'btn-danger' : 'btn-success'}" onclick="toggleServiceActive('${doc.id}', ${!s.activo})">${s.activo ? 'Desactivar' : 'Activar'}</button>
+                <button class="btn btn-sm ${s.activo ? 'btn-danger' : 'btn-success'}" onclick="toggleServiceActive('${doc.id}',${!s.activo})">${s.activo ? 'Desactivar' : 'Activar'}</button>
               </div>
             </td>
           </tr>`;
@@ -141,27 +203,20 @@ async function loadAllServices() {
     html += '</tbody></table></div>';
     container.innerHTML = html;
   } catch (err) {
-    console.error('Error al cargar servicios:', err);
     container.innerHTML = '<div class="alert alert-error">Error al cargar servicios.</div>';
   }
 }
 
-// ─── SERVICIOS: Activar/desactivar ───
 async function toggleServiceActive(id, nuevoEstado) {
   try {
     await db.collection('services').doc(id).update({ activo: nuevoEstado });
     loadAllServices();
-  } catch (err) {
-    console.error('Error al cambiar estado del servicio:', err);
-  }
+  } catch (err) { console.error(err); }
 }
 
-// ─── SERVICIOS: Modal crear/editar ───
 function showServiceModal(data = null, docId = null) {
-  // Eliminar modal previo si existe
   const prev = document.getElementById('service-modal');
   if (prev) prev.remove();
-
   const isEdit = !!docId;
 
   const overlay = document.createElement('div');
@@ -178,11 +233,11 @@ function showServiceModal(data = null, docId = null) {
         </div>
         <div class="form-group">
           <label>Categoría</label>
-          <select class="form-control" id="svc-categoria" required>
-            <option value="facial" ${data && data.categoria === 'facial' ? 'selected' : ''}>Facial</option>
-            <option value="corporal" ${data && data.categoria === 'corporal' ? 'selected' : ''}>Corporal</option>
-            <option value="capilar" ${data && data.categoria === 'capilar' ? 'selected' : ''}>Capilar</option>
-            <option value="otros" ${data && data.categoria === 'otros' ? 'selected' : ''}>Otros</option>
+          <select class="form-control" id="svc-categoria">
+            <option value="facial" ${data && data.categoria==='facial'?'selected':''}>Facial</option>
+            <option value="corporal" ${data && data.categoria==='corporal'?'selected':''}>Corporal</option>
+            <option value="capilar" ${data && data.categoria==='capilar'?'selected':''}>Capilar</option>
+            <option value="otros" ${data && data.categoria==='otros'?'selected':''}>Otros</option>
           </select>
         </div>
         <div class="form-group">
@@ -190,9 +245,7 @@ function showServiceModal(data = null, docId = null) {
           <input type="number" class="form-control" id="svc-duracion" value="${data ? data.duracionMin : 60}" min="15" step="15" required>
         </div>
         <div class="form-group">
-          <label>
-            <input type="checkbox" id="svc-activo" ${!data || data.activo ? 'checked' : ''}> Activo
-          </label>
+          <label><input type="checkbox" id="svc-activo" ${!data || data.activo ? 'checked' : ''}> Activo</label>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="document.getElementById('service-modal').remove()">Cancelar</button>
@@ -202,140 +255,213 @@ function showServiceModal(data = null, docId = null) {
     </div>`;
 
   document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
-  // Cerrar al click fuera
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-
-  // Submit
   document.getElementById('service-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const serviceData = {
+    const d = {
       nombre: document.getElementById('svc-nombre').value.trim(),
       categoria: document.getElementById('svc-categoria').value,
       duracionMin: parseInt(document.getElementById('svc-duracion').value),
       activo: document.getElementById('svc-activo').checked
     };
-
-    if (!serviceData.nombre) {
-      showAlert('service-modal-alert', 'Ingresá un nombre.');
-      return;
-    }
-
+    if (!d.nombre) { showAlert('service-modal-alert', 'Ingresá un nombre.'); return; }
     try {
-      if (isEdit) {
-        await db.collection('services').doc(docId).update(serviceData);
-      } else {
-        await db.collection('services').add(serviceData);
-      }
+      if (isEdit) { await db.collection('services').doc(docId).update(d); }
+      else { await db.collection('services').add(d); }
       overlay.remove();
       loadAllServices();
-    } catch (err) {
-      console.error('Error al guardar servicio:', err);
-      showAlert('service-modal-alert', 'Error al guardar.');
-    }
+    } catch { showAlert('service-modal-alert', 'Error al guardar.'); }
   });
 }
 
 async function editServiceModal(docId) {
   const doc = await db.collection('services').doc(docId).get();
-  if (doc.exists) {
-    showServiceModal(doc.data(), docId);
-  }
+  if (doc.exists) showServiceModal(doc.data(), docId);
 }
 
-// ─── SEED: Cargar servicios iniciales ───
-async function seedServices() {
-  if (!confirm('¿Cargar todos los servicios iniciales? Esto no duplicará servicios existentes con el mismo nombre.')) return;
+// ─── BLOQUEOS: helpers ───
+async function loadBloqueos() {
+  try {
+    const doc = await db.collection('config').doc('bloqueos').get();
+    const data = doc.exists ? doc.data() : {};
+    return { diasBloqueados: data.diasBloqueados || [], horariosBloqueados: data.horariosBloqueados || {} };
+  } catch { return { diasBloqueados: [], horariosBloqueados: {} }; }
+}
 
+// ─── BLOQUEOS: Días ───
+async function renderDiasBloqueados() {
+  const container = document.getElementById('dias-bloqueados-list');
+  const bloqueos = await loadBloqueos();
+  const dias = [...bloqueos.diasBloqueados].sort();
+
+  if (dias.length === 0) {
+    container.innerHTML = '<p class="text-muted">No hay días bloqueados.</p>';
+    return;
+  }
+  container.innerHTML = dias.map(d => `
+    <div class="bloqueo-item">
+      <span>${formatDate(d)}</span>
+      <button class="btn btn-sm btn-danger" onclick="desbloquearDia('${d}')">Desbloquear</button>
+    </div>`).join('');
+}
+
+async function bloquearDia() {
+  const input = document.getElementById('bloqueo-fecha');
+  const fecha = input.value;
+  if (!fecha) { showAlert('bloqueo-alert', 'Seleccioná una fecha.'); return; }
+  try {
+    const bloqueos = await loadBloqueos();
+    if (bloqueos.diasBloqueados.includes(fecha)) {
+      showAlert('bloqueo-alert', 'Ese día ya está bloqueado.', 'warning'); return;
+    }
+    bloqueos.diasBloqueados.push(fecha);
+    await db.collection('config').doc('bloqueos').set(bloqueos);
+    showAlert('bloqueo-alert', `Día ${formatDate(fecha)} bloqueado.`, 'success');
+    input.value = '';
+    renderDiasBloqueados();
+  } catch { showAlert('bloqueo-alert', 'Error al bloquear el día.'); }
+}
+
+async function desbloquearDia(fecha) {
+  if (!confirm(`¿Desbloquear el ${formatDate(fecha)}?`)) return;
+  try {
+    const bloqueos = await loadBloqueos();
+    bloqueos.diasBloqueados = bloqueos.diasBloqueados.filter(d => d !== fecha);
+    await db.collection('config').doc('bloqueos').set(bloqueos);
+    renderDiasBloqueados();
+  } catch { showAlert('bloqueo-alert', 'Error al desbloquear.'); }
+}
+
+// ─── BLOQUEOS: Horarios específicos ───
+function initHorariosBloqueadosSelect() {
+  const select = document.getElementById('bloqueo-hora-select');
+  select.innerHTML = '';
+  generateTimeSlots(9, 20, 60).forEach(slot => {
+    const opt = document.createElement('option');
+    opt.value = slot;
+    opt.textContent = slot;
+    select.appendChild(opt);
+  });
+}
+
+async function renderHorariosBloqueados(fecha) {
+  if (!fecha) return;
+  const container = document.getElementById('horarios-bloqueados-list');
+  const bloqueos = await loadBloqueos();
+  const horarios = [...(bloqueos.horariosBloqueados[fecha] || [])].sort();
+
+  if (horarios.length === 0) {
+    container.innerHTML = '<p class="text-muted">No hay horarios bloqueados ese día.</p>';
+    return;
+  }
+  container.innerHTML = horarios.map(h => `
+    <div class="bloqueo-item">
+      <span>${h}</span>
+      <button class="btn btn-sm btn-danger" onclick="desbloquearHorario('${fecha}','${h}')">Quitar</button>
+    </div>`).join('');
+}
+
+async function bloquearHorario() {
+  const fecha = document.getElementById('bloqueo-hora-fecha').value;
+  const hora  = document.getElementById('bloqueo-hora-select').value;
+  if (!fecha || !hora) { showAlert('bloqueo-alert', 'Seleccioná fecha y horario.'); return; }
+  try {
+    const bloqueos = await loadBloqueos();
+    if (!bloqueos.horariosBloqueados[fecha]) bloqueos.horariosBloqueados[fecha] = [];
+    if (bloqueos.horariosBloqueados[fecha].includes(hora)) {
+      showAlert('bloqueo-alert', 'Ese horario ya está bloqueado.', 'warning'); return;
+    }
+    bloqueos.horariosBloqueados[fecha].push(hora);
+    await db.collection('config').doc('bloqueos').set(bloqueos);
+    showAlert('bloqueo-alert', `Horario ${hora} del ${formatDate(fecha)} bloqueado.`, 'success');
+    renderHorariosBloqueados(fecha);
+  } catch { showAlert('bloqueo-alert', 'Error al bloquear el horario.'); }
+}
+
+async function desbloquearHorario(fecha, hora) {
+  try {
+    const bloqueos = await loadBloqueos();
+    bloqueos.horariosBloqueados[fecha] = (bloqueos.horariosBloqueados[fecha] || []).filter(h => h !== hora);
+    await db.collection('config').doc('bloqueos').set(bloqueos);
+    renderHorariosBloqueados(fecha);
+  } catch { showAlert('bloqueo-alert', 'Error al desbloquear.'); }
+}
+
+// ─── SEED servicios iniciales ───
+async function seedServices() {
+  if (!confirm('¿Cargar todos los servicios iniciales? No se duplicarán los existentes.')) return;
   const services = [
-    // Corporales
-    { nombre: "Vela Body", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Inner", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Body Sculpt", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Criolipolisis", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Radiofrecuencia Corporal", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Cavitación + electrodos", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Peptonas", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Mesoterapia Corporal", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Vela/Radio y meso", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Hidrolip", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Drenaje linfático", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Drenaje completo", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Maderoterapia cuerpo completo", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Madero por zona", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Body Up", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Electrodos", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Reflexología", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Refle más ventosas", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Masaje completo", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Masaje por zona", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Plasma para alopecia", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Hifu Corporal", categoria: "corporal", duracionMin: 60, activo: true },
-    { nombre: "Hifu vaginal", categoria: "corporal", duracionMin: 60, activo: true },
-    // Faciales
-    { nombre: "Diagnóstico", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Limpieza facial", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Limpieza básica", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Dermaplaning", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Dermapen", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Radiofrecuencia Facial", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Inner ball", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Parches de colágeno", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Baby Lips", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Hydralips", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Hilos sólidos y líquidos", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Hilos nubes", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Baby Botox", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Baby Glow", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Peeling", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Plasma Facial", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Hydrapeel", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Mesoterapia Facial", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Mesoterapia y dermaplaning", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Hyaluron Pen", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Perfilado con hilo en cejas", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Perfilado con hilo en bozo y cejas", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Tintura + perfilado", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Laminado de cejas", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Henna en cejas", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Lifting de pestañas", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Exosoma", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Em face premium", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Em face", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Combos de lifting y laminado", categoria: "facial", duracionMin: 60, activo: true },
-    { nombre: "Lifting de pestañas y laminado", categoria: "facial", duracionMin: 60, activo: true },
-    // Capilares
-    { nombre: "Mesoterapia capilar", categoria: "capilar", duracionMin: 60, activo: true },
+    { nombre:"Vela Body", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Inner", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Body Sculpt", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Criolipolisis", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Radiofrecuencia Corporal", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Cavitación + electrodos", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Peptonas", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Mesoterapia Corporal", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Vela/Radio y meso", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Hidrolip", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Drenaje linfático", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Drenaje completo", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Maderoterapia cuerpo completo", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Madero por zona", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Body Up", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Electrodos", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Reflexología", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Refle más ventosas", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Masaje completo", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Masaje por zona", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Plasma para alopecia", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Hifu Corporal", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Hifu vaginal", categoria:"corporal", duracionMin:60, activo:true },
+    { nombre:"Diagnóstico", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Limpieza facial", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Limpieza básica", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Dermaplaning", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Dermapen", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Radiofrecuencia Facial", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Inner ball", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Parches de colágeno", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Baby Lips", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Hydralips", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Hilos sólidos y líquidos", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Hilos nubes", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Baby Botox", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Baby Glow", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Peeling", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Plasma Facial", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Hydrapeel", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Mesoterapia Facial", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Mesoterapia y dermaplaning", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Hyaluron Pen", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Perfilado con hilo en cejas", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Perfilado con hilo en bozo y cejas", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Tintura + perfilado", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Laminado de cejas", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Henna en cejas", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Lifting de pestañas", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Exosoma", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Em face premium", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Em face", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Combos de lifting y laminado", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Lifting de pestañas y laminado", categoria:"facial", duracionMin:60, activo:true },
+    { nombre:"Mesoterapia capilar", categoria:"capilar", duracionMin:60, activo:true },
   ];
 
   const btn = document.getElementById('btn-seed');
   if (btn) btn.disabled = true;
-
-  // Obtener servicios existentes para no duplicar
   const existing = new Set();
   const snap = await db.collection('services').get();
   snap.forEach(doc => existing.add(doc.data().nombre));
 
   let count = 0;
   const batch = db.batch();
-
   for (const svc of services) {
-    if (!existing.has(svc.nombre)) {
-      const ref = db.collection('services').doc();
-      batch.set(ref, svc);
-      count++;
-    }
+    if (!existing.has(svc.nombre)) { batch.set(db.collection('services').doc(), svc); count++; }
   }
-
-  if (count > 0) {
-    await batch.commit();
-    alert(`Se cargaron ${count} servicios nuevos.`);
-  } else {
-    alert('Todos los servicios ya estaban cargados.');
-  }
-
+  if (count > 0) { await batch.commit(); alert(`Se cargaron ${count} servicios nuevos.`); }
+  else { alert('Todos los servicios ya estaban cargados.'); }
   if (btn) btn.disabled = false;
   loadAllServices();
 }

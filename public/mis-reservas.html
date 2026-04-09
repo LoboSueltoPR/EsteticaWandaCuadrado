@@ -13,15 +13,42 @@
   <div id="navbar"></div>
 
   <div class="container">
-    <div class="page-header">
-      <h1>Mis Reservas</h1>
-      <p>Consultá, editá o cancelá tus turnos</p>
+
+    <!-- Perfil del usuario -->
+    <div class="user-profile-bar card mb-3">
+      <div class="user-profile-info">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div>
+          <h2 id="user-nombre">Cargando...</h2>
+          <p class="text-muted" id="user-email"></p>
+          <p class="text-muted" id="user-telefono"></p>
+        </div>
+      </div>
+      <a href="nueva-reserva.html" class="btn btn-primary">+ Nuevo turno</a>
+    </div>
+
+    <!-- Próximo turno destacado -->
+    <div id="proximo-turno-container" class="hidden mb-3">
+      <div class="card proximo-turno-card">
+        <div>
+          <p style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:var(--color-primary); font-weight:600">Próximo turno</p>
+          <h3 id="proximo-servicio"></h3>
+          <p class="text-muted" id="proximo-fecha-hora"></p>
+        </div>
+        <span class="badge badge-confirmada" id="proximo-estado"></span>
+      </div>
+    </div>
+
+    <!-- Lista de reservas -->
+    <div class="page-header" style="text-align:left; margin-bottom:1rem;">
+      <h2>Historial de reservas</h2>
     </div>
 
     <div id="reserva-alert"></div>
     <div id="reservations-list">
       <div class="loading-overlay"><div class="spinner"></div> Cargando reservas...</div>
     </div>
+
   </div>
 
   <div id="footer"></div>
@@ -38,6 +65,45 @@
     initNavbar();
 
     requireAuth(async (user, userData) => {
+      // ── Perfil ──
+      const nombre = userData ? userData.nombre : user.displayName || user.email;
+      document.getElementById('user-nombre').textContent = nombre;
+      document.getElementById('user-email').textContent = user.email;
+      document.getElementById('user-avatar').textContent = nombre.charAt(0).toUpperCase();
+
+      if (userData && userData.telefono) {
+        document.getElementById('user-telefono').textContent = userData.telefono;
+      } else {
+        document.getElementById('user-telefono').remove();
+      }
+
+      // ── Próximo turno ──
+      try {
+        const today = getTodayStr();
+        const proxSnap = await db.collection('reservations')
+          .where('userId', '==', user.uid)
+          .where('fecha', '>=', today)
+          .where('estado', 'in', ['pendiente', 'confirmada'])
+          .orderBy('fecha')
+          .orderBy('hora')
+          .limit(1)
+          .get();
+
+        if (!proxSnap.empty) {
+          const r = proxSnap.docs[0].data();
+          document.getElementById('proximo-servicio').textContent = r.servicioNombre;
+          document.getElementById('proximo-fecha-hora').textContent =
+            `${formatDate(r.fecha)} a las ${r.hora} hs`;
+          const estadoEl = document.getElementById('proximo-estado');
+          estadoEl.textContent = r.estado;
+          estadoEl.className = `badge badge-${r.estado}`;
+          show('proximo-turno-container');
+        }
+      } catch (err) {
+        console.warn('No se pudo cargar próximo turno:', err.message);
+      }
+
+      // ── Lista completa ──
       await loadMyReservations('reservations-list');
     });
   </script>

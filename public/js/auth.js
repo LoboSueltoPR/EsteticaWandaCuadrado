@@ -58,14 +58,13 @@ async function handleRegister(e) {
       rol: 'cliente',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    console.log('Usuario creado en Firestore OK');
+    // Éxito — redirigir
+    window.location.href = 'dashboard.html';
   } catch (err) {
-    // Loguear el error real para diagnóstico
-    console.error('Error al guardar en Firestore:', err.code, err.message);
-    // El usuario ya existe en Auth — igual redirigir, el perfil se puede crear después
+    // Mostrar error EN PANTALLA para diagnóstico
+    showAlert('auth-alert', 'Auth OK pero Firestore falló: [' + err.code + '] ' + err.message, 'warning');
+    btn.disabled = false;
   }
-
-  window.location.href = 'dashboard.html';
 }
 
 // ─── Inicio de sesión ───
