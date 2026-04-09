@@ -47,35 +47,47 @@ async function loadAdminStats() {
 }
 
 // ─── AGENDA DEL DÍA ───
+// Trae solo por fecha (sin orderBy para no requerir índice extra)
+// y ordena en el cliente
 async function loadAgendaHoy() {
   const today = getTodayStr();
   const container = document.getElementById('agenda-hoy');
-  container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+  container.innerHTML = '<div class="loading-overlay" style="padding:1rem"><div class="spinner"></div></div>';
 
   try {
     const snapshot = await db.collection('reservations')
       .where('fecha', '==', today)
-      .orderBy('hora')
       .get();
 
-    let html = '';
+    // Filtrar canceladas y ordenar por hora en el cliente
+    let reservas = [];
     snapshot.forEach(doc => {
       const r = doc.data();
-      if (r.estado === 'cancelada') return;
+      if (r.estado !== 'cancelada') reservas.push(r);
+    });
+    reservas.sort((a, b) => a.hora.localeCompare(b.hora));
+
+    if (reservas.length === 0) {
+      container.innerHTML = '<p class="text-muted" style="padding:0.5rem 0">No hay turnos activos para hoy.</p>';
+      return;
+    }
+
+    let html = '';
+    reservas.forEach(r => {
       html += `
         <div class="agenda-item">
           <div class="agenda-hora">${r.hora}</div>
           <div class="agenda-info">
             <strong>${r.servicioNombre}</strong>
-            <span class="text-muted">${r.nombreUsuario || r.emailUsuario}</span>
+            <span>${r.nombreUsuario || r.emailUsuario}</span>
           </div>
           <span class="badge badge-${r.estado}">${r.estado}</span>
         </div>`;
     });
-
-    container.innerHTML = html || '<p class="text-muted" style="padding:0.5rem 0">No hay turnos activos para hoy.</p>';
+    container.innerHTML = html;
   } catch (err) {
-    container.innerHTML = '<p class="text-muted">Error al cargar.</p>';
+    console.error('Error agenda:', err);
+    container.innerHTML = '<p class="text-muted">Error al cargar la agenda.</p>';
   }
 }
 
