@@ -120,7 +120,7 @@ async function handleCreateReservation(e) {
 
     showAlert('reserva-alert', 'Reserva creada con éxito.', 'success');
     setTimeout(() => {
-      window.location.href = '/mis-reservas.html';
+      window.location.href = 'mis-reservas.html';
     }, 1500);
   } catch (err) {
     console.error('Error al crear reserva:', err);
@@ -150,7 +150,7 @@ async function loadMyReservations(containerId) {
       container.innerHTML = `
         <div class="empty-state">
           <p>No tenés reservas todavía.</p>
-          <a href="/nueva-reserva.html" class="btn btn-primary">Reservar turno</a>
+          <a href="nueva-reserva.html" class="btn btn-primary">Reservar turno</a>
         </div>`;
       return;
     }
@@ -180,7 +180,7 @@ async function loadMyReservations(containerId) {
             <td><span class="badge badge-${r.estado}">${r.estado}</span></td>
             <td>
               <div class="btn-group">
-                ${canEdit ? `<a href="/editar-reserva.html?id=${doc.id}" class="btn btn-sm btn-secondary">Editar</a>` : ''}
+                ${canEdit ? `<a href="editar-reserva.html?id=${doc.id}" class="btn btn-sm btn-secondary">Editar</a>` : ''}
                 ${canEdit ? `<button class="btn btn-sm btn-danger" onclick="cancelReservation('${doc.id}')">Cancelar</button>` : ''}
               </div>
             </td>
@@ -282,7 +282,7 @@ async function handleEditReservation(e, reservationId) {
 
     showAlert('reserva-alert', 'Reserva actualizada con éxito.', 'success');
     setTimeout(() => {
-      window.location.href = '/mis-reservas.html';
+      window.location.href = 'mis-reservas.html';
     }, 1500);
   } catch (err) {
     console.error('Error al editar reserva:', err);

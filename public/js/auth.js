@@ -51,7 +51,7 @@ async function handleRegister(e) {
     });
 
     // Redirigir al dashboard
-    window.location.href = '/dashboard.html';
+    window.location.href = 'dashboard.html';
   } catch (err) {
     let msg = 'Error al registrarse.';
     if (err.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado.';
@@ -79,7 +79,7 @@ async function handleLogin(e) {
 
   try {
     await auth.signInWithEmailAndPassword(email, password);
-    window.location.href = '/dashboard.html';
+    window.location.href = 'dashboard.html';
   } catch (err) {
     let msg = 'Error al iniciar sesión.';
     if (err.code === 'auth/user-not-found') msg = 'No existe una cuenta con ese email.';

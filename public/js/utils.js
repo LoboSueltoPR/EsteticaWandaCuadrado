@@ -52,7 +52,7 @@ function getTodayStr() {
 function requireAuth(callback) {
   auth.onAuthStateChanged(async (user) => {
     if (!user) {
-      window.location.href = '/login.html';
+      window.location.href = 'login.html';
       return;
     }
     // Obtener datos del usuario de Firestore
@@ -71,7 +71,7 @@ function requireAuth(callback) {
 function requireAdmin(callback) {
   requireAuth((user, userData) => {
     if (!userData || userData.rol !== 'admin') {
-      window.location.href = '/dashboard.html';
+      window.location.href = 'dashboard.html';
       return;
     }
     callback(user, userData);
@@ -124,7 +124,7 @@ function initNavbar() {
 // ─── Cerrar sesión ───
 function logout() {
   auth.signOut().then(() => {
-    window.location.href = '/index.html';
+    window.location.href = 'index.html';
   });
 }
 
@@ -162,19 +162,19 @@ function getNavbarHTML() {
   return `
   <nav class="navbar">
     <div class="navbar-inner">
-      <a href="/index.html" class="navbar-brand">Estética Agus</a>
+      <a href="index.html" class="navbar-brand">Wanda Cuadrado</a>
       <button class="navbar-toggle" aria-label="Menú">
         <span></span><span></span><span></span>
       </button>
       <ul class="navbar-links">
-        <li><a href="/index.html">Inicio</a></li>
-        <li><a href="/tratamientos.html">Tratamientos</a></li>
-        <li class="nav-auth" style="display:none"><a href="/dashboard.html">Mi Panel</a></li>
-        <li class="nav-auth" style="display:none"><a href="/mis-reservas.html">Mis Reservas</a></li>
-        <li class="nav-auth" style="display:none"><a href="/nueva-reserva.html">Reservar</a></li>
-        <li class="nav-admin" style="display:none"><a href="/admin.html">Admin</a></li>
-        <li class="nav-guest"><a href="/login.html">Ingresar</a></li>
-        <li class="nav-guest"><a href="/register.html">Registrarse</a></li>
+        <li><a href="index.html">Inicio</a></li>
+        <li><a href="tratamientos.html">Tratamientos</a></li>
+        <li class="nav-auth" style="display:none"><a href="dashboard.html">Mi Panel</a></li>
+        <li class="nav-auth" style="display:none"><a href="mis-reservas.html">Mis Reservas</a></li>
+        <li class="nav-auth" style="display:none"><a href="nueva-reserva.html">Reservar</a></li>
+        <li class="nav-admin" style="display:none"><a href="admin.html">Admin</a></li>
+        <li class="nav-guest"><a href="login.html">Ingresar</a></li>
+        <li class="nav-guest"><a href="register.html">Registrarse</a></li>
         <li class="nav-auth" style="display:none"><a href="#" onclick="logout(); return false;">Salir</a></li>
       </ul>
     </div>
@@ -186,6 +186,6 @@ function getFooterHTML() {
   const year = new Date().getFullYear();
   return `
   <footer class="footer">
-    <p>Estética Agus &copy; ${year} — Todos los derechos reservados</p>
+    <p>Wanda Cuadrado &copy; ${year} — Todos los derechos reservados</p>
   </footer>`;
 }

@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Editar Reserva — Estética Agus</title>
+  <title>Editar Reserva — Wanda Cuadrado</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
@@ -51,7 +51,7 @@
 
         <div class="btn-group">
           <button type="submit" class="btn btn-primary" style="flex:1;">Guardar cambios</button>
-          <a href="/mis-reservas.html" class="btn btn-secondary">Cancelar</a>
+          <a href="mis-reservas.html" class="btn btn-secondary">Cancelar</a>
         </div>
       </form>
     </div>
@@ -62,9 +62,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="/js/firebase-config.js"></script>
-  <script src="/js/utils.js"></script>
-  <script src="/js/reservas.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/reservas.js"></script>
   <script>
     document.getElementById('navbar').innerHTML = getNavbarHTML();
     document.getElementById('footer').innerHTML = getFooterHTML();
@@ -75,7 +75,7 @@
     const reservationId = params.get('id');
 
     if (!reservationId) {
-      window.location.href = '/mis-reservas.html';
+      window.location.href = 'mis-reservas.html';
     }
 
     requireAuth(async (user, userData) => {

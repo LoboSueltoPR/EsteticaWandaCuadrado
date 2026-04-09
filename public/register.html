@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registro — Estética Agus</title>
+  <title>Registro — Wanda Cuadrado</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
@@ -42,7 +42,7 @@
       </form>
 
       <div class="auth-footer">
-        <p>¿Ya tenés cuenta? <a href="/login.html">Iniciar sesión</a></p>
+        <p>¿Ya tenés cuenta? <a href="login.html">Iniciar sesión</a></p>
       </div>
     </div>
   </div>
@@ -52,9 +52,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="/js/firebase-config.js"></script>
-  <script src="/js/utils.js"></script>
-  <script src="/js/auth.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
   <script>
     document.getElementById('navbar').innerHTML = getNavbarHTML();
     document.getElementById('footer').innerHTML = getFooterHTML();
@@ -62,7 +62,7 @@
 
     // Si ya está logueado, redirigir
     auth.onAuthStateChanged(user => {
-      if (user) window.location.href = '/dashboard.html';
+      if (user) window.location.href = 'dashboard.html';
     });
   </script>
 </body>
