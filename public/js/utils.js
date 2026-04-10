@@ -170,7 +170,7 @@ async function getOccupiedSlots(fecha, excludeReservationId = null) {
   try {
     const snapshot = await db.collection('reservations')
       .where('fecha', '==', fecha)
-      .where('estado', 'in', ['pendiente', 'confirmada'])
+      .where('estado', 'in', ['pendiente_pago', 'pendiente', 'confirmada'])
       .get();
 
     snapshot.forEach(doc => {

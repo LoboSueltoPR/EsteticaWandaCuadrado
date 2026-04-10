@@ -391,6 +391,11 @@ tbody tr:hover {
   color: var(--color-white);
 }
 
+.badge-pendiente_pago {
+  background: #E3F2FD;
+  color: #1565C0;
+}
+
 /* ─── Hero (Home) ─── */
 .hero {
   text-align: center;

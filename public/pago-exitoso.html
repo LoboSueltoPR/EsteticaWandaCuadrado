@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pago Exitoso — Wanda Cuadrado</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .result-card {
+      max-width: 500px;
+      margin: 3rem auto;
+      text-align: center;
+      padding: 3rem 2rem;
+    }
+
+    .result-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      margin: 0 auto 1.5rem;
+    }
+
+    .result-icon.success { background: #E8F5E9; }
+    .result-icon.pending { background: #FFF8E1; }
+
+    .result-card h1 {
+      font-size: 1.8rem;
+      color: var(--color-primary-dark);
+      margin-bottom: 0.7rem;
+    }
+
+    .result-card p {
+      color: var(--color-text-light);
+      line-height: 1.7;
+      margin-bottom: 0.5rem;
+    }
+
+    .result-detail {
+      background: var(--color-bg-alt);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.5rem;
+      margin: 1.5rem 0;
+      text-align: left;
+    }
+
+    .result-detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.35rem 0;
+      font-size: 0.88rem;
+      color: var(--color-text-light);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .result-detail-row:last-child { border-bottom: none; }
+    .result-detail-row strong { color: var(--color-text); }
+
+    .btn-group-center {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="navbar"></div>
+
+  <div class="container">
+    <div class="card result-card" id="result-card">
+      <div class="loading-overlay"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <div id="footer"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    document.getElementById('navbar').innerHTML = getNavbarHTML();
+    document.getElementById('footer').innerHTML = getFooterHTML();
+    initNavbar();
+
+    const urlParams  = new URLSearchParams(window.location.search);
+    const isPending  = urlParams.get('pending') === '1';
+    const externalRef = urlParams.get('external_reference'); // MP lo pasa en la URL
+
+    requireAuth(async (user) => {
+      const card = document.getElementById('result-card');
+
+      if (isPending) {
+        // Pago en proceso (ej. transferencia bancaria)
+        card.innerHTML = `
+          <div class="result-icon pending">⏳</div>
+          <h1>Pago en proceso</h1>
+          <p>Tu pago está siendo procesado por Mercado Pago.</p>
+          <p>Te avisaremos cuando se confirme y tu turno quedará reservado.</p>
+          <div class="btn-group-center">
+            <a href="mis-reservas.html" class="btn btn-primary">Ver mis reservas</a>
+            <a href="index.html" class="btn btn-secondary">Volver al inicio</a>
+          </div>`;
+        return;
+      }
+
+      // Buscar la reserva por external_reference (= reservaId)
+      if (externalRef) {
+        try {
+          // Esperar hasta 5 seg a que el webhook procese el pago
+          let reserva = null;
+          for (let i = 0; i < 5; i++) {
+            const doc = await db.collection('reservations').doc(externalRef).get();
+            if (doc.exists) {
+              reserva = { id: doc.id, ...doc.data() };
+              if (reserva.estado !== 'pendiente_pago') break;
+            }
+            await new Promise(r => setTimeout(r, 1000));
+          }
+
+          if (reserva && reserva.estado === 'pendiente') {
+            card.innerHTML = `
+              <div class="result-icon success">✅</div>
+              <h1>¡Turno reservado!</h1>
+              <p>Tu seña fue recibida. El turno está confirmado.</p>
+              <div class="result-detail">
+                <div class="result-detail-row"><span>Servicio</span><strong>${reserva.servicioNombre}</strong></div>
+                <div class="result-detail-row"><span>Fecha</span><strong>${formatDate(reserva.fecha)}</strong></div>
+                <div class="result-detail-row"><span>Horario</span><strong>${reserva.hora} hs</strong></div>
+                <div class="result-detail-row"><span>Seña pagada</span><strong>$${(reserva.senia||0).toLocaleString('es-AR')}</strong></div>
+              </div>
+              <p style="font-size:0.85rem;color:var(--color-text-muted)">
+                El saldo restante ($${((reserva.precioTotal||0)-(reserva.senia||0)).toLocaleString('es-AR')}) se abona el día del turno.
+              </p>
+              <div class="btn-group-center">
+                <a href="mis-reservas.html" class="btn btn-primary">Ver mis reservas</a>
+                <a href="nueva-reserva.html" class="btn btn-secondary">Reservar otro turno</a>
+              </div>`;
+          } else {
+            // Pago aprobado pero webhook aún no procesó — mostrar pantalla genérica OK
+            card.innerHTML = `
+              <div class="result-icon success">✅</div>
+              <h1>¡Pago recibido!</h1>
+              <p>Tu pago fue aprobado. El turno quedará confirmado en unos instantes.</p>
+              <div class="btn-group-center">
+                <a href="mis-reservas.html" class="btn btn-primary">Ver mis reservas</a>
+              </div>`;
+          }
+        } catch (err) {
+          console.error('Error al verificar reserva:', err);
+          showGenericSuccess(card);
+        }
+      } else {
+        showGenericSuccess(card);
+      }
+    });
+
+    function showGenericSuccess(card) {
+      card.innerHTML = `
+        <div class="result-icon success">✅</div>
+        <h1>¡Pago exitoso!</h1>
+        <p>Tu turno fue reservado correctamente.</p>
+        <div class="btn-group-center">
+          <a href="mis-reservas.html" class="btn btn-primary">Ver mis reservas</a>
+          <a href="index.html" class="btn btn-secondary">Volver al inicio</a>
+        </div>`;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-');
+      return `${d}/${m}/${y}`;
+    }
+  </script>
+</body>
+</html>

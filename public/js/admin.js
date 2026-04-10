@@ -191,7 +191,7 @@ async function loadAllServices() {
     <div class="table-responsive">
       <table>
         <thead>
-          <tr><th>Nombre</th><th>Categoría</th><th>Duración</th><th>Activo</th><th>Acciones</th></tr>
+          <tr><th>Nombre</th><th>Categoría</th><th>Duración</th><th>Precio</th><th>Activo</th><th>Acciones</th></tr>
         </thead>
         <tbody>`;
 
@@ -202,6 +202,7 @@ async function loadAllServices() {
             <td>${s.nombre}</td>
             <td style="text-transform:capitalize">${s.categoria}</td>
             <td>${s.duracionMin} min</td>
+            <td>${s.precio ? `$${s.precio.toLocaleString('es-AR')}` : '<span class="text-muted">Sin precio</span>'}</td>
             <td><span class="badge ${s.activo ? 'badge-confirmada' : 'badge-cancelada'}">${s.activo ? 'Sí' : 'No'}</span></td>
             <td>
               <div class="btn-group">
@@ -257,6 +258,10 @@ function showServiceModal(data = null, docId = null) {
           <input type="number" class="form-control" id="svc-duracion" value="${data ? data.duracionMin : 60}" min="15" step="15" required>
         </div>
         <div class="form-group">
+          <label>Precio (ARS) <span style="font-size:0.75rem;color:var(--color-text-muted)">— requerido para cobrar seña</span></label>
+          <input type="number" class="form-control" id="svc-precio" value="${data && data.precio ? data.precio : ''}" min="0" step="100" placeholder="Ej: 5000">
+        </div>
+        <div class="form-group">
           <label><input type="checkbox" id="svc-activo" ${!data || data.activo ? 'checked' : ''}> Activo</label>
         </div>
         <div class="modal-actions">
@@ -271,10 +276,12 @@ function showServiceModal(data = null, docId = null) {
 
   document.getElementById('service-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const precioVal = document.getElementById('svc-precio').value;
     const d = {
       nombre: document.getElementById('svc-nombre').value.trim(),
       categoria: document.getElementById('svc-categoria').value,
       duracionMin: parseInt(document.getElementById('svc-duracion').value),
+      precio: precioVal ? parseInt(precioVal) : 0,
       activo: document.getElementById('svc-activo').checked
     };
     if (!d.nombre) { showAlert('service-modal-alert', 'Ingresá un nombre.'); return; }

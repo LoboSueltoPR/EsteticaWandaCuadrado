@@ -32,6 +32,7 @@ async function loadServicesSelect(selectId) {
     option.textContent = `${s.nombre} (${s.duracionMin} min)`;
     option.dataset.nombre = s.nombre;
     option.dataset.duracion = s.duracionMin;
+    option.dataset.precio = s.precio || 0;
     (optgroup || select).appendChild(option);
   });
 }
