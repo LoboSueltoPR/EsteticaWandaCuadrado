@@ -16,7 +16,6 @@
       display: none;
     }
     .precio-resumen.visible { display: block; }
-
     .precio-row {
       display: flex;
       justify-content: space-between;
@@ -37,15 +36,12 @@
       color: var(--color-primary);
       font-size: 1.15rem;
     }
-
     .mp-note {
       font-size: 0.8rem;
       color: var(--color-text-muted);
       text-align: center;
       margin-top: 0.8rem;
     }
-    .mp-note a { color: var(--color-primary); }
-
     .btn-mp {
       background: #009ee3;
       color: #fff;
@@ -56,22 +52,6 @@
     }
     .btn-mp:hover { background: #0082bf; color: #fff; }
     .btn-mp:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    .mp-logo {
-      height: 20px;
-      vertical-align: middle;
-    }
-
-    #error-url {
-      background: #FFF3CD;
-      border: 1px solid #FFEAA7;
-      border-radius: var(--radius-sm);
-      padding: 0.8rem 1rem;
-      font-size: 0.85rem;
-      color: #856404;
-      margin-bottom: 1rem;
-      display: none;
-    }
   </style>
 </head>
 <body>
@@ -84,13 +64,10 @@
       <p>Elegí tu servicio, fecha y horario</p>
     </div>
 
-    <div id="error-url"></div>
-
     <div class="card">
       <div id="reserva-alert"></div>
 
       <form id="reserva-form">
-        <!-- Servicio -->
         <div class="form-group">
           <label for="reserva-servicio">Servicio</label>
           <select class="form-control" id="reserva-servicio" required>
@@ -98,7 +75,6 @@
           </select>
         </div>
 
-        <!-- Resumen precio -->
         <div class="precio-resumen" id="precio-resumen">
           <div class="precio-row">
             <span>Precio del servicio</span>
@@ -110,13 +86,11 @@
           </div>
         </div>
 
-        <!-- Fecha -->
         <div class="form-group">
           <label for="reserva-fecha">Fecha</label>
           <input type="date" class="form-control" id="reserva-fecha" required>
         </div>
 
-        <!-- Horarios -->
         <div class="form-group">
           <label>Horario disponible</label>
           <div id="time-slots-container">
@@ -128,10 +102,9 @@
         <button type="submit" id="btn-pagar" class="btn btn-mp btn-block" disabled>
           <span id="btn-text">Pagar seña con Mercado Pago</span>
         </button>
-
         <p class="mp-note">
-          Al hacer clic serás redirigido a Mercado Pago para pagar la seña del 10%.<br>
-          El turno queda confirmado únicamente al completar el pago.
+          Serás redirigido a Mercado Pago para pagar la seña del 10%.<br>
+          El turno se confirma al completar el pago.
         </p>
       </form>
     </div>
@@ -142,7 +115,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/reservas.js"></script>
@@ -151,31 +123,34 @@
     document.getElementById('footer').innerHTML = getFooterHTML();
     initNavbar();
 
-    // Mostrar error si viene de un pago fallido
+    // Mostrar aviso si viene de un pago fallido
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('error') === 'pago_fallido') {
-      const errEl = document.getElementById('error-url');
-      errEl.textContent = 'El pago no pudo procesarse. Por favor intentá de nuevo eligiendo fecha y horario.';
-      errEl.style.display = 'block';
+      showAlert('reserva-alert', 'El pago no fue completado. Por favor elegí fecha y horario nuevamente.', 'error');
     }
 
-    requireAuth(async (user, userData) => {
+    requireAuth(async (user) => {
       await loadServicesSelect('reserva-servicio');
 
-      const fechaInput = document.getElementById('reserva-fecha');
+      const fechaInput    = document.getElementById('reserva-fecha');
+      const servicioSelect = document.getElementById('reserva-servicio');
+      const precioResumen = document.getElementById('precio-resumen');
+      const precioDisplay = document.getElementById('precio-total-display');
+      const seniaDisplay  = document.getElementById('senia-display');
+      const btnPagar      = document.getElementById('btn-pagar');
+
       fechaInput.min = getTodayStr();
 
-      const servicioSelect = document.getElementById('reserva-servicio');
-      const precioResumen  = document.getElementById('precio-resumen');
-      const precioDisplay  = document.getElementById('precio-total-display');
-      const seniaDisplay   = document.getElementById('senia-display');
-      const btnPagar       = document.getElementById('btn-pagar');
+      function updateBtnState() {
+        const hora   = document.getElementById('selected-time').value;
+        const opt    = servicioSelect.options[servicioSelect.selectedIndex];
+        const precio = parseInt(opt ? opt.dataset.precio || 0 : 0, 10);
+        btnPagar.disabled = !(servicioSelect.value && fechaInput.value && hora && precio > 0);
+      }
 
-      // Actualizar resumen de precio al seleccionar servicio
       servicioSelect.addEventListener('change', () => {
-        const opt = servicioSelect.options[servicioSelect.selectedIndex];
+        const opt    = servicioSelect.options[servicioSelect.selectedIndex];
         const precio = parseInt(opt.dataset.precio || 0, 10);
-
         if (servicioSelect.value && precio > 0) {
           const senia = Math.round(precio * 0.10);
           precioDisplay.textContent = `$${precio.toLocaleString('es-AR')}`;
@@ -187,27 +162,16 @@
         updateBtnState();
       });
 
-      // Horarios al cambiar fecha
       fechaInput.addEventListener('change', () => {
         document.getElementById('selected-time').value = '';
         renderTimeSlots('time-slots-container', fechaInput.value);
         updateBtnState();
       });
 
-      // Habilitar botón solo si todos los campos están completos
-      function updateBtnState() {
-        const hora = document.getElementById('selected-time').value;
-        const opt  = servicioSelect.options[servicioSelect.selectedIndex];
-        const precio = parseInt(opt ? opt.dataset.precio || 0 : 0, 10);
-        btnPagar.disabled = !(servicioSelect.value && fechaInput.value && hora && precio > 0);
-      }
-
-      // Escuchar cuando se selecciona un horario
       document.getElementById('time-slots-container').addEventListener('click', () => {
         setTimeout(updateBtnState, 50);
       });
 
-      // Submit → llamar Cloud Function y redirigir a MP
       document.getElementById('reserva-form').addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -229,32 +193,92 @@
         document.getElementById('btn-text').textContent = 'Procesando...';
 
         try {
-          const createPayment = firebase.functions().httpsCallable('createPayment');
+          // 1. Verificar disponibilidad
+          const occupied = await getOccupiedSlots(fechaInput.value);
+          if (occupied.includes(hora)) {
+            showAlert('reserva-alert', 'Ese horario acaba de ser reservado. Por favor elegí otro.');
+            renderTimeSlots('time-slots-container', fechaInput.value);
+            document.getElementById('selected-time').value = '';
+            btnPagar.disabled = false;
+            document.getElementById('btn-text').textContent = 'Pagar seña con Mercado Pago';
+            return;
+          }
 
-          const result = await createPayment({
-            servicioId:     servicioSelect.value,
+          // 2. Leer config de Mercado Pago desde Firestore
+          const mpDoc = await db.collection('config').doc('mp').get();
+          if (!mpDoc.exists || !mpDoc.data().access_token) {
+            showAlert('reserva-alert', 'Los pagos aún no están configurados. Contactá al local.');
+            btnPagar.disabled = false;
+            document.getElementById('btn-text').textContent = 'Pagar seña con Mercado Pago';
+            return;
+          }
+          const { access_token, sandbox } = mpDoc.data();
+
+          // 3. Crear reserva en Firestore con estado pendiente_pago
+          const senia     = Math.round(precio * 0.10);
+          const expiraAt  = new Date(Date.now() + 30 * 60 * 1000);
+
+          const reservaRef = await db.collection('reservations').add({
+            userId:        user.uid,
+            nombreUsuario: user.displayName || '',
+            emailUsuario:  user.email,
+            servicioId:    servicioSelect.value,
             servicioNombre: opt.dataset.nombre,
-            fecha:          fechaInput.value,
-            hora:           hora,
-            precioTotal:    precio,
-            nombreUsuario:  user.displayName || '',
-            siteUrl:        window.location.origin + window.location.pathname.replace('nueva-reserva.html', '')
+            fecha:         fechaInput.value,
+            hora:          hora,
+            estado:        'pendiente_pago',
+            precioTotal:   precio,
+            senia:         senia,
+            expiraAt:      expiraAt,
+            paymentId:     null,
+            createdAt:     firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt:     firebase.firestore.FieldValue.serverTimestamp()
           });
 
-          // Redirigir a Mercado Pago
-          window.location.href = result.data.init_point;
+          // 4. Crear preferencia en Mercado Pago
+          const base = window.location.href.replace('nueva-reserva.html', '').replace(/\?.*$/, '');
+
+          const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+            method: 'POST',
+            headers: {
+              'Content-Type':  'application/json',
+              'Authorization': `Bearer ${access_token}`
+            },
+            body: JSON.stringify({
+              items: [{
+                title:      `Seña — ${opt.dataset.nombre}`,
+                quantity:   1,
+                unit_price: senia,
+                currency_id: 'ARS'
+              }],
+              payer:              { email: user.email },
+              external_reference: reservaRef.id,
+              back_urls: {
+                success: `${base}pago-exitoso.html`,
+                failure: `${base}nueva-reserva.html?error=pago_fallido`,
+                pending: `${base}pago-exitoso.html?pending=1`
+              },
+              auto_return:          'approved',
+              statement_descriptor: 'WANDA CUADRADO'
+            })
+          });
+
+          if (!mpResponse.ok) {
+            const errData = await mpResponse.json().catch(() => ({}));
+            console.error('Error MP:', errData);
+            await reservaRef.delete(); // liberar slot
+            throw new Error('No se pudo conectar con Mercado Pago.');
+          }
+
+          const preference = await mpResponse.json();
+          const initPoint  = sandbox ? preference.sandbox_init_point : preference.init_point;
+
+          // 5. Redirigir al checkout de MP
+          window.location.href = initPoint;
 
         } catch (err) {
           console.error('Error al iniciar pago:', err);
-          let msg = 'Error al iniciar el pago. Intentá de nuevo.';
-          if (err.code === 'already-exists') {
-            msg = 'Ese horario ya no está disponible. Por favor elegí otro.';
-            renderTimeSlots('time-slots-container', fechaInput.value);
-            document.getElementById('selected-time').value = '';
-          } else if (err.code === 'unauthenticated') {
-            msg = 'Tu sesión expiró. Por favor volvé a iniciar sesión.';
-          }
-          showAlert('reserva-alert', msg);
+          showAlert('reserva-alert', err.message || 'Error al iniciar el pago. Intentá de nuevo.');
           btnPagar.disabled = false;
           document.getElementById('btn-text').textContent = 'Pagar seña con Mercado Pago';
         }

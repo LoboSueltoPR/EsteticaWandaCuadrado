@@ -21,20 +21,22 @@ service cloud.firestore {
     }
 
     // ─── Reservas ───
-    // Un cliente solo puede leer/editar sus propias reservas.
-    // Un admin puede leer y editar todas las reservas.
+    // Cualquier usuario autenticado puede leer (necesario para verificar
+    // horarios ocupados en la consulta de disponibilidad).
+    // Solo el dueño de la reserva o un admin puede crear/editar.
     match /reservations/{reservationId} {
-      allow read: if request.auth != null &&
-        (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if request.auth != null;
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update: if request.auth != null &&
         (resource.data.userId == request.auth.uid || isAdmin());
       allow delete: if request.auth != null && isAdmin();
     }
 
-    // ─── Configuración de disponibilidad ───
+    // ─── Configuración ───
+    // config/mp contiene el token de Mercado Pago: solo usuarios autenticados.
+    // config/bloqueos: también requiere auth (la reserva ya exige login de todas formas).
     match /config/{docId} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null && isAdmin();
     }
 
