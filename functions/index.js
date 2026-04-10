@@ -6,9 +6,10 @@
  *   mpWebhook      → Recibe notificación de MP y confirma la reserva al pagar
  *
  * Configuración necesaria (una sola vez):
- *   firebase functions:config:set mercadopago.access_token="TU_ACCESS_TOKEN"
- *   firebase functions:config:set mercadopago.sandbox="true"   (en desarrollo)
- *   firebase functions:config:set app.site_url="https://TU_SITIO"
+ *   Crear el archivo functions/.env con:
+ *     MP_ACCESS_TOKEN=TU_ACCESS_TOKEN
+ *     MP_SANDBOX=true
+ *     SITE_URL=https://lobosueltopr.github.io/EsteticaWandaCuadrado
  */
 
 const functions = require('firebase-functions');
@@ -20,15 +21,14 @@ const db = admin.firestore();
 
 // ── Inicializar Mercado Pago ──────────────────────────────────────────────────
 function initMP() {
-  const token = (functions.config().mercadopago || {}).access_token || '';
+  const token = process.env.MP_ACCESS_TOKEN || '';
   mp.configure({ access_token: token });
 }
 
 // ── Helper: obtener URL del sitio ─────────────────────────────────────────────
 function getSiteUrl(requestedUrl) {
-  const configured = (functions.config().app || {}).site_url || '';
+  const configured = process.env.SITE_URL || '';
   if (configured) return configured;
-  // Fallback: GitHub Pages del proyecto
   return requestedUrl || 'https://lobosueltopr.github.io/EsteticaWandaCuadrado';
 }
 
@@ -143,7 +143,7 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const isSandbox = (functions.config().mercadopago || {}).sandbox === 'true';
+  const isSandbox = process.env.MP_SANDBOX === 'true';
 
   return {
     init_point:         isSandbox
