@@ -116,6 +116,11 @@ exports.createPayment = functions.https.onCall(async (data, context) => {
       name:  nombreUsuario || '',
       email: context.auth.token.email || ''
     },
+    payment_methods: {
+    excluded_payment_types: [],
+    excluded_payment_methods: [],
+    installments: 12
+    },
     external_reference: reservaRef.id,
     back_urls: {
       success: `${baseUrl}/pago-exitoso.html`,
