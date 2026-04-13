@@ -391,6 +391,13 @@ tbody tr:hover {
   color: var(--color-white);
 }
 
+.btn-whatsapp {
+  background: #25D366;
+  color: #fff !important;
+  border-color: #25D366;
+}
+.btn-whatsapp:hover { background: #1ebe5d; border-color: #1ebe5d; }
+
 .badge-pendiente_pago {
   background: #E3F2FD;
   color: #1565C0;

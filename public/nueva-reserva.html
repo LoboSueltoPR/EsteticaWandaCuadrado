@@ -129,7 +129,7 @@
       showAlert('reserva-alert', 'El pago no fue completado. Por favor elegí fecha y horario nuevamente.', 'error');
     }
 
-    requireAuth(async (user) => {
+    requireAuth(async (user, userData) => {
       // Limpiar reservas pendiente_pago vencidas de este usuario
       cleanupMyExpiredReservations(user.uid);
 
@@ -219,23 +219,24 @@
 
           // 3. Crear reserva en Firestore con estado pendiente_pago
           const senia     = Math.round(precio * 0.10);
-          const expiraAt  = new Date(Date.now() + 30 * 60 * 1000);
+          const expiraAt  = new Date(Date.now() + 10 * 60 * 1000);
 
           const reservaRef = await db.collection('reservations').add({
-            userId:        user.uid,
-            nombreUsuario: user.displayName || '',
-            emailUsuario:  user.email,
-            servicioId:    servicioSelect.value,
-            servicioNombre: opt.dataset.nombre,
-            fecha:         fechaInput.value,
-            hora:          hora,
-            estado:        'pendiente_pago',
-            precioTotal:   precio,
-            senia:         senia,
-            expiraAt:      expiraAt,
-            paymentId:     null,
-            createdAt:     firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt:     firebase.firestore.FieldValue.serverTimestamp()
+            userId:          user.uid,
+            nombreUsuario:   user.displayName || '',
+            emailUsuario:    user.email,
+            telefonoUsuario: userData?.telefono || '',
+            servicioId:      servicioSelect.value,
+            servicioNombre:  opt.dataset.nombre,
+            fecha:           fechaInput.value,
+            hora:            hora,
+            estado:          'pendiente_pago',
+            precioTotal:     precio,
+            senia:           senia,
+            expiraAt:        expiraAt,
+            paymentId:       null,
+            createdAt:       firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt:       firebase.firestore.FieldValue.serverTimestamp()
           });
 
           // 4. Crear preferencia en Mercado Pago

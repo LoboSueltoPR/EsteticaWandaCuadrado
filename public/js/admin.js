@@ -129,6 +129,12 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
         <tbody>`;
 
     reservas.forEach(r => {
+      const waPhone = formatWAPhone(r.telefonoUsuario || '');
+      const waMensaje = encodeURIComponent(
+        `Hola ${r.nombreUsuario || 'clienta'}, te recordamos tu turno de *${r.servicioNombre}* para el *${formatDate(r.fecha)} a las ${r.hora}hs*. ¡Te esperamos! 💆‍♀️`
+      );
+      const waLink = waPhone ? `https://wa.me/${waPhone}?text=${waMensaje}` : '';
+
       html += `
           <tr>
             <td>${formatDate(r.fecha)}</td>
@@ -136,14 +142,14 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
             <td>
               <span>${r.nombreUsuario || 'Sin nombre'}</span><br>
               <small class="text-muted">${r.emailUsuario || ''}</small>
+              ${r.telefonoUsuario ? `<br><small class="text-muted">📱 ${r.telefonoUsuario}</small>` : ''}
             </td>
             <td>${r.servicioNombre}</td>
             <td><span class="badge badge-${r.estado}">${r.estado}</span></td>
             <td>
               <div class="btn-group">
-                ${r.estado !== 'confirmada' ? `<button class="btn btn-sm btn-success" onclick="updateReservationStatus('${r.id}','confirmada')">Confirmar</button>` : ''}
-                ${r.estado !== 'pendiente'  ? `<button class="btn btn-sm btn-secondary" onclick="updateReservationStatus('${r.id}','pendiente')">Pendiente</button>` : ''}
-                ${r.estado !== 'cancelada'  ? `<button class="btn btn-sm btn-danger" onclick="updateReservationStatus('${r.id}','cancelada')">Cancelar</button>` : ''}
+                ${waLink ? `<a class="btn btn-sm btn-whatsapp" href="${waLink}" target="_blank">WhatsApp</a>` : ''}
+                ${r.estado !== 'cancelada' ? `<button class="btn btn-sm btn-danger" onclick="updateReservationStatus('${r.id}','cancelada')">Cancelar</button>` : ''}
               </div>
             </td>
           </tr>`;

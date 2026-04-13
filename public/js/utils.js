@@ -238,10 +238,7 @@ async function cleanupMyExpiredReservations(userId) {
       if (!exp) return;
       const expDate = exp.toDate ? exp.toDate() : new Date(exp);
       if (expDate <= now) {
-        batch.update(doc.ref, {
-          estado:    'cancelada',
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        batch.delete(doc.ref);
         count++;
       }
     });
@@ -249,6 +246,16 @@ async function cleanupMyExpiredReservations(userId) {
   } catch (err) {
     console.warn('Cleanup:', err.message);
   }
+}
+
+// ─── Formatear teléfono para WhatsApp (Argentina) ───
+function formatWAPhone(tel) {
+  if (!tel) return '';
+  let digits = tel.replace(/\D/g, '');
+  if (digits.startsWith('549')) return digits;
+  if (digits.startsWith('54'))  return digits;
+  if (digits.startsWith('0'))   digits = digits.slice(1);
+  return '549' + digits;
 }
 
 // ─── Footer ───

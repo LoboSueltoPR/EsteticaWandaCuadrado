@@ -15,8 +15,8 @@ async function handleRegister(e) {
   const password2 = document.getElementById('reg-password2').value;
 
   // Validaciones
-  if (!nombre || !email || !password) {
-    showAlert('auth-alert', 'Completá todos los campos obligatorios.');
+  if (!nombre || !email || !telefono || !password) {
+    showAlert('auth-alert', 'Completá todos los campos, incluyendo el teléfono.');
     btn.disabled = false;
     return;
   }
