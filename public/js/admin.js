@@ -149,7 +149,7 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
             <td>
               <div class="btn-group">
                 ${waLink ? `<a class="btn btn-sm btn-whatsapp" href="${waLink}" target="_blank">WhatsApp</a>` : ''}
-                ${r.estado !== 'cancelada' ? `<button class="btn btn-sm btn-danger" onclick="updateReservationStatus('${r.id}','cancelada')">Cancelar</button>` : ''}
+                ${r.estado !== 'cancelada' ? `<button class="btn btn-sm btn-danger" onclick="cancelReservationAdmin('${r.id}')">Cancelar</button>` : ''}
               </div>
             </td>
           </tr>`;
@@ -163,7 +163,111 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
   }
 }
 
-// ─── RESERVAS: Cambiar estado ───
+// ─── RESERVAS: Cancelar (con opción de devolución de seña) ───
+async function cancelReservationAdmin(id) {
+  // Leer datos de la reserva
+  let reserva;
+  try {
+    const doc = await db.collection('reservations').doc(id).get();
+    if (!doc.exists) { alert('Reserva no encontrada.'); return; }
+    reserva = doc.data();
+  } catch (err) {
+    alert('Error al obtener la reserva.');
+    return;
+  }
+
+  const tieneSenia = reserva.paymentId && reserva.paymentStatus === 'approved';
+
+  if (tieneSenia) {
+    const devolver = confirm(
+      `Esta clienta pagó una seña de $${(reserva.senia || 0).toLocaleString('es-AR')}.\n\n` +
+      `¿Querés devolver la seña automáticamente a su medio de pago?\n\n` +
+      `• Aceptar → devuelve el dinero por Mercado Pago y cancela el turno\n` +
+      `• Cancelar → solo cancela el turno (la devolución la manejás vos)`
+    );
+
+    if (devolver) {
+      await procesarDevolucion(id, reserva);
+      return;
+    }
+  } else {
+    if (!confirm('¿Cancelar este turno?')) return;
+  }
+
+  // Cancelar sin devolución
+  await cancelarEnFirestore(id);
+}
+
+// ─── Procesar devolución via Mercado Pago ───
+async function procesarDevolucion(id, reserva) {
+  try {
+    // Leer access token de config/mp
+    const mpDoc = await db.collection('config').doc('mp').get();
+    if (!mpDoc.exists || !mpDoc.data().access_token) {
+      alert('No se encontró la configuración de Mercado Pago. Cancelá el turno y hacé la devolución manualmente.');
+      return;
+    }
+    const { access_token } = mpDoc.data();
+
+    // Llamar API de devolución de MP
+    const response = await fetch(
+      `https://api.mercadopago.com/v1/payments/${reserva.paymentId}/refunds`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${access_token}`
+        },
+        body: JSON.stringify({})
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error('Error MP refund:', err);
+      const msg = err.message || 'Error desconocido';
+      const continuar = confirm(
+        `No se pudo procesar la devolución automática: ${msg}\n\n` +
+        `¿Cancelar el turno igualmente y hacer la devolución manual?`
+      );
+      if (continuar) await cancelarEnFirestore(id, { refundStatus: 'manual' });
+      return;
+    }
+
+    const refundData = await response.json();
+    // Cancelar la reserva con registro de devolución
+    await cancelarEnFirestore(id, {
+      refundStatus: 'devuelta',
+      refundId:     String(refundData.id || '')
+    });
+
+    alert(`Seña devuelta correctamente. El dinero vuelve al medio de pago original de la clienta en 1-10 días hábiles.`);
+
+  } catch (err) {
+    console.error('Error devolución:', err);
+    alert('Error al procesar la devolución. Cancelá el turno manualmente y gestioná la devolución desde tu cuenta de Mercado Pago.');
+  }
+}
+
+// ─── Cancelar en Firestore ───
+async function cancelarEnFirestore(id, extra = {}) {
+  try {
+    await db.collection('reservations').doc(id).update({
+      estado:    'cancelada',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      ...extra
+    });
+    const filtroEstado = document.getElementById('filtro-estado').value;
+    const filtroFecha  = document.getElementById('filtro-fecha').value;
+    loadAllReservations(filtroEstado, filtroFecha);
+    loadAdminStats();
+    loadAgendaHoy();
+  } catch (err) {
+    alert('Error al cancelar la reserva.');
+  }
+}
+
+// ─── RESERVAS: Cambiar estado (genérico, solo para uso interno) ───
 async function updateReservationStatus(id, nuevoEstado) {
   try {
     await db.collection('reservations').doc(id).update({
