@@ -130,6 +130,9 @@
     }
 
     requireAuth(async (user) => {
+      // Limpiar reservas pendiente_pago vencidas de este usuario
+      cleanupMyExpiredReservations(user.uid);
+
       await loadServicesSelect('reserva-servicio');
 
       const fechaInput    = document.getElementById('reserva-fecha');

@@ -168,15 +168,21 @@ async function getOccupiedSlots(fecha, excludeReservationId = null) {
 
   // 2. Reservas confirmadas/pendientes ese día
   try {
+    const now = new Date();
     const snapshot = await db.collection('reservations')
       .where('fecha', '==', fecha)
       .where('estado', 'in', ['pendiente_pago', 'pendiente', 'confirmada'])
       .get();
 
     snapshot.forEach(doc => {
-      if (doc.id !== excludeReservationId) {
-        occupied.add(doc.data().hora);
+      if (doc.id === excludeReservationId) return;
+      const data = doc.data();
+      // Ignorar pendiente_pago vencidas (no bloquean el slot)
+      if (data.estado === 'pendiente_pago' && data.expiraAt) {
+        const expira = data.expiraAt.toDate ? data.expiraAt.toDate() : new Date(data.expiraAt);
+        if (expira <= now) return;
       }
+      occupied.add(data.hora);
     });
   } catch (err) {
     console.error('Error al consultar reservas:', err);
@@ -212,6 +218,37 @@ function getNavbarHTML() {
       </ul>
     </div>
   </nav>`;
+}
+
+// ─── Limpiar reservas pendiente_pago vencidas del usuario actual ───
+async function cleanupMyExpiredReservations(userId) {
+  try {
+    const now  = new Date();
+    const snap = await db.collection('reservations')
+      .where('userId', '==', userId)
+      .where('estado', '==', 'pendiente_pago')
+      .get();
+
+    if (snap.empty) return;
+
+    const batch = db.batch();
+    let count = 0;
+    snap.forEach(doc => {
+      const exp = doc.data().expiraAt;
+      if (!exp) return;
+      const expDate = exp.toDate ? exp.toDate() : new Date(exp);
+      if (expDate <= now) {
+        batch.update(doc.ref, {
+          estado:    'cancelada',
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        count++;
+      }
+    });
+    if (count > 0) await batch.commit();
+  } catch (err) {
+    console.warn('Cleanup:', err.message);
+  }
 }
 
 // ─── Footer ───

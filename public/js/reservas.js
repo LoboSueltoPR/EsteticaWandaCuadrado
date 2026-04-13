@@ -196,6 +196,50 @@ async function loadMyReservations(containerId) {
   }
 }
 
+// ─── Historial de tratamientos realizados ───
+async function loadTreatmentHistory(containerId, wrapperClass) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const today = new Date().toISOString().split('T')[0];
+
+  try {
+    const snapshot = await db.collection('reservations')
+      .where('userId', '==', user.uid)
+      .where('estado', '==', 'confirmada')
+      .where('fecha', '<', today)
+      .orderBy('fecha', 'desc')
+      .get();
+
+    if (snapshot.empty) return; // no mostrar la sección si no hay historial
+
+    // Mostrar el wrapper
+    const wrapper = document.querySelector('.' + wrapperClass) || document.getElementById(wrapperClass);
+    if (wrapper) wrapper.classList.remove('hidden');
+    const hiddenEl = document.getElementById('historial-container');
+    if (hiddenEl) hiddenEl.classList.remove('hidden');
+
+    let html = '<div class="historial-grid">';
+    snapshot.forEach(doc => {
+      const r = doc.data();
+      html += `
+        <div class="historial-item">
+          <div class="historial-fecha">${formatDate(r.fecha)}</div>
+          <div class="historial-servicio">${r.servicioNombre}</div>
+          ${r.precioTotal ? `<div class="historial-precio">$${r.precioTotal.toLocaleString('es-AR')}</div>` : ''}
+        </div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+
+  } catch (err) {
+    console.warn('Error al cargar historial:', err.message);
+  }
+}
+
 // ─── Cancelar reserva ───
 async function cancelReservation(reservationId) {
   if (!confirm('¿Estás segura de que querés cancelar esta reserva?')) return;
