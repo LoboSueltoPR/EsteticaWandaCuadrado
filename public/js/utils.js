@@ -203,6 +203,7 @@ function getNavbarHTML() {
       <ul class="navbar-links">
         <li><a href="index.html">Inicio</a></li>
         <li><a href="tratamientos.html">Tratamientos</a></li>
+        <li><a href="mis-cremas.html">Mis Cremas</a></li>
 
         <!-- Solo clientes -->
         <li class="nav-auth nav-client" style="display:none"><a href="mis-reservas.html">Mis Reservas</a></li>

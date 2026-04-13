@@ -40,6 +40,25 @@ service cloud.firestore {
       allow write: if request.auth != null && isAdmin();
     }
 
+    // ─── Productos (cremas) ───
+    // Lectura pública para que cualquier visitante pueda ver el catálogo.
+    // Solo admins pueden crear, editar o eliminar.
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null && isAdmin();
+    }
+
+    // ─── Pedidos de cremas ───
+    // Similar a reservations: cualquier auth puede leer (para validaciones),
+    // solo el dueño puede crear, dueño o admin pueden actualizar.
+    match /orders/{orderId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if request.auth != null && isAdmin();
+    }
+
     // ─── Función auxiliar: verificar si el usuario es admin ───
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'admin';

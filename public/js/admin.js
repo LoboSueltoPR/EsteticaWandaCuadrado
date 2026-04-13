@@ -32,6 +32,7 @@ async function loadAdminStats() {
     let hoy = 0, pendientes = 0, semana = 0, confirmadas = 0;
     snapshot.forEach(doc => {
       const r = doc.data();
+      if (r.estado === 'pendiente_pago') return; // no contar los no confirmados
       if (r.fecha === today && r.estado !== 'cancelada') hoy++;
       if (r.estado === 'pendiente') pendientes++;
       if (r.estado === 'confirmada') confirmadas++;
@@ -105,6 +106,8 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
     let reservas = [];
     snapshot.forEach(doc => reservas.push({ id: doc.id, ...doc.data() }));
 
+    // Nunca mostrar pendiente_pago (hasta que no esté confirmado no aparece)
+    reservas = reservas.filter(r => r.estado !== 'pendiente_pago');
     if (filtroEstado !== 'todos') reservas = reservas.filter(r => r.estado === filtroEstado);
     if (filtroFecha) reservas = reservas.filter(r => r.fecha === filtroFecha);
 
@@ -593,4 +596,226 @@ async function seedServices() {
   else { alert('Todos los servicios ya estaban cargados.'); }
   if (btn) btn.disabled = false;
   loadAllServices();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PEDIDOS DE CREMAS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function loadAllOrders(filtroEstado = 'todos') {
+  const container = document.getElementById('admin-orders');
+  if (!container) return;
+  container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Cargando...</div>';
+
+  try {
+    const snapshot = await db.collection('orders').orderBy('createdAt', 'desc').get();
+    let pedidos = [];
+    snapshot.forEach(doc => pedidos.push({ id: doc.id, ...doc.data() }));
+
+    // Nunca mostrar pendiente_pago
+    pedidos = pedidos.filter(p => p.estado !== 'pendiente_pago');
+    if (filtroEstado !== 'todos') pedidos = pedidos.filter(p => p.estado === filtroEstado);
+
+    if (pedidos.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>No hay pedidos confirmados todavía.</p></div>';
+      return;
+    }
+
+    let html = `
+    <div class="table-responsive">
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Cliente</th><th>Producto</th>
+          <th>Seña</th><th>Saldo</th><th>Estado</th><th>Acciones</th>
+        </tr></thead><tbody>`;
+
+    pedidos.forEach(p => {
+      const fecha   = p.createdAt ? formatDateTime(p.createdAt) : '—';
+      const saldo   = (p.precio || 0) - (p.senia || 0);
+      const waPhone = formatWAPhone(p.telefonoUsuario || '');
+      const waMsg   = encodeURIComponent('Hola ' + (p.nombreUsuario || 'clienta') + ', tu pedido de *' + p.productoNombre + '* está listo para retirar. El saldo a abonar es $' + saldo.toLocaleString('es-AR') + '. Te esperamos!');
+      const waLink  = waPhone ? 'https://wa.me/' + waPhone + '?text=' + waMsg : '';
+
+      html += '<tr>' +
+        '<td style="font-size:.82rem">' + fecha + '</td>' +
+        '<td><span>' + (p.nombreUsuario || 'Sin nombre') + '</span><br><small class="text-muted">' + (p.emailUsuario || '') + '</small>' +
+        (p.telefonoUsuario ? '<br><small class="text-muted">📱 ' + p.telefonoUsuario + '</small>' : '') + '</td>' +
+        '<td><strong>' + p.productoNombre + '</strong></td>' +
+        '<td>$' + (p.senia || 0).toLocaleString('es-AR') + '</td>' +
+        '<td>$' + saldo.toLocaleString('es-AR') + '</td>' +
+        '<td><span class="badge badge-' + p.estado + '">' + p.estado + '</span></td>' +
+        '<td><div class="btn-group">' +
+        (waLink ? '<a class="btn btn-sm btn-whatsapp" href="' + waLink + '" target="_blank">WhatsApp</a>' : '') +
+        (p.estado === 'pendiente' ? '<button class="btn btn-sm btn-success" onclick="completeOrder(\'' + p.id + '\')">Entregado</button>' : '') +
+        (p.estado !== 'cancelada' ? '<button class="btn btn-sm btn-danger" onclick="cancelOrderAdmin(\'' + p.id + '\')">Cancelar</button>' : '') +
+        '</div></td></tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Error pedidos:', err);
+    container.innerHTML = '<div class="alert alert-error">Error al cargar los pedidos.</div>';
+  }
+}
+
+async function completeOrder(id) {
+  if (!confirm('Marcar este pedido como entregado y cobrado?')) return;
+  try {
+    await db.collection('orders').doc(id).update({
+      estado: 'completado',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    loadAllOrders(document.getElementById('filtro-estado-pedido').value);
+  } catch (err) { alert('Error al actualizar el pedido.'); }
+}
+
+async function cancelOrderAdmin(id) {
+  let pedido;
+  try {
+    const doc = await db.collection('orders').doc(id).get();
+    if (!doc.exists) { alert('Pedido no encontrado.'); return; }
+    pedido = doc.data();
+  } catch (err) { alert('Error al obtener el pedido.'); return; }
+
+  const tieneSenia = pedido.paymentId && pedido.paymentStatus === 'approved';
+  if (tieneSenia) {
+    const devolver = confirm('Esta clienta pago una sena de $' + (pedido.senia || 0).toLocaleString('es-AR') + '.\n\nQueres devolver la sena automaticamente?\n\nAceptar = devuelve por MP y cancela\nCancelar = solo cancela (devolucion manual)');
+    if (devolver) { await procesarDevolucionOrder(id, pedido); return; }
+  } else {
+    if (!confirm('Cancelar este pedido?')) return;
+  }
+  await cancelarOrderEnFirestore(id);
+}
+
+async function procesarDevolucionOrder(id, pedido) {
+  try {
+    const mpDoc = await db.collection('config').doc('mp').get();
+    if (!mpDoc.exists || !mpDoc.data().access_token) {
+      alert('No se encontro la config de MP. Cancela el pedido y hace la devolucion manual.');
+      return;
+    }
+    const access_token = mpDoc.data().access_token;
+    const response = await fetch(
+      'https://api.mercadopago.com/v1/payments/' + pedido.paymentId + '/refunds',
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + access_token }, body: '{}' }
+    );
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const continuar = confirm('No se pudo devolver: ' + (errData.message || 'Error') + '.\nCancelar el pedido igual?');
+      if (continuar) await cancelarOrderEnFirestore(id, { refundStatus: 'manual' });
+      return;
+    }
+    const refund = await response.json();
+    await cancelarOrderEnFirestore(id, { refundStatus: 'devuelta', refundId: String(refund.id || '') });
+    alert('Sena devuelta. El dinero vuelve al medio de pago en 1-10 dias habiles.');
+  } catch (err) {
+    alert('Error al procesar la devolucion. Gestionala manualmente desde MP.');
+  }
+}
+
+async function cancelarOrderEnFirestore(id, extra = {}) {
+  try {
+    const update = Object.assign({ estado: 'cancelada', updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, extra);
+    await db.collection('orders').doc(id).update(update);
+    const filtroEl = document.getElementById('filtro-estado-pedido');
+    loadAllOrders(filtroEl ? filtroEl.value : 'todos');
+  } catch (err) { alert('Error al cancelar el pedido.'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GESTION DE PRODUCTOS (CREMAS)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function loadAllProducts() {
+  const container = document.getElementById('admin-products-list');
+  if (!container) return;
+  container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Cargando...</div>';
+
+  try {
+    const snapshot = await db.collection('products').orderBy('categoria').orderBy('nombre').get();
+    if (snapshot.empty) {
+      container.innerHTML = '<div class="empty-state"><p>No hay productos. Usa el boton para cargar los iniciales.</p></div>';
+      return;
+    }
+    let html = '<div class="table-responsive"><table><thead><tr><th>Nombre</th><th>Categoria</th><th>Tamano</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+    snapshot.forEach(doc => {
+      const p = doc.data();
+      html += '<tr>' +
+        '<td><strong>' + p.nombre + '</strong></td>' +
+        '<td>' + p.categoria + '</td>' +
+        '<td>' + (p.ml ? p.ml + 'cc' : '—') + '</td>' +
+        '<td>' + (p.precio ? '$' + p.precio.toLocaleString('es-AR') : '<span style="color:var(--color-warning)">Sin precio</span>') + '</td>' +
+        '<td><span class="badge ' + (p.activo ? 'badge-confirmada' : 'badge-cancelada') + '">' + (p.activo ? 'Activo' : 'Inactivo') + '</span></td>' +
+        '<td><div class="btn-group">' +
+        '<button class="btn btn-sm btn-secondary" onclick="editProductModal(\'' + doc.id + '\')">Editar</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteProduct(\'' + doc.id + '\')">Eliminar</button>' +
+        '</div></td></tr>';
+    });
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = '<div class="alert alert-error">Error al cargar productos.</div>';
+  }
+}
+
+function showProductModal(data, docId) {
+  const isEdit = !!docId;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay active';
+  const ingredientesStr = data && data.ingredientes ? data.ingredientes.join('\n') : '';
+  overlay.innerHTML = '<div class="modal-box" style="max-width:480px">' +
+    '<div class="modal-header"><h3>' + (isEdit ? 'Editar producto' : 'Nuevo producto') + '</h3>' +
+    '<button class="modal-close" onclick="this.closest(\'.modal-overlay\').remove()">x</button></div>' +
+    '<div id="product-modal-alert"></div>' +
+    '<div class="form-group"><label>Nombre *</label><input class="form-control" id="prod-nombre" value="' + (data && data.nombre ? data.nombre : '') + '"></div>' +
+    '<div class="form-group"><label>Descripcion</label><textarea class="form-control" id="prod-desc" rows="2">' + (data && data.descripcion ? data.descripcion : '') + '</textarea></div>' +
+    '<div class="form-group"><label>Ingredientes (uno por linea)</label><textarea class="form-control" id="prod-ingredientes" rows="3">' + ingredientesStr + '</textarea></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">' +
+    '<div class="form-group"><label>Categoria</label><select class="form-control" id="prod-cat">' +
+    '<option value="facial"' + (data && data.categoria === 'facial' ? ' selected' : '') + '>Facial</option>' +
+    '<option value="corporal"' + (data && data.categoria === 'corporal' ? ' selected' : '') + '>Corporal</option>' +
+    '</select></div>' +
+    '<div class="form-group"><label>Tamano (cc)</label><input type="number" class="form-control" id="prod-ml" value="' + (data && data.ml ? data.ml : '') + '" placeholder="Ej: 60"></div></div>' +
+    '<div class="form-group"><label>Precio (ARS) *</label><input type="number" class="form-control" id="prod-precio" value="' + (data && data.precio ? data.precio : '') + '" min="0" step="100" placeholder="Ej: 5000"></div>' +
+    '<div class="form-group" style="display:flex;align-items:center;gap:.5rem">' +
+    '<input type="checkbox" id="prod-activo"' + (data && data.activo !== false ? ' checked' : '') + '>' +
+    '<label for="prod-activo" style="margin:0">Activo (visible en la tienda)</label></div>' +
+    '<button class="btn btn-primary btn-block" id="prod-save-btn">' + (isEdit ? 'Guardar cambios' : 'Crear producto') + '</button></div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('prod-save-btn').addEventListener('click', async function() {
+    const nombre = document.getElementById('prod-nombre').value.trim();
+    const precioVal = document.getElementById('prod-precio').value;
+    if (!nombre || !precioVal) { showAlert('product-modal-alert', 'Nombre y precio son obligatorios.'); return; }
+    const mlVal = document.getElementById('prod-ml').value;
+    const d = {
+      nombre: nombre,
+      descripcion: document.getElementById('prod-desc').value.trim(),
+      ingredientes: document.getElementById('prod-ingredientes').value.split('\n').map(function(s) { return s.trim(); }).filter(Boolean),
+      categoria: document.getElementById('prod-cat').value,
+      ml: mlVal ? parseInt(mlVal) : null,
+      precio: parseInt(precioVal),
+      activo: document.getElementById('prod-activo').checked
+    };
+    try {
+      if (isEdit) { await db.collection('products').doc(docId).update(d); }
+      else { await db.collection('products').add(d); }
+      overlay.remove();
+      loadAllProducts();
+    } catch (err) { showAlert('product-modal-alert', 'Error al guardar.'); }
+  });
+}
+
+async function editProductModal(docId) {
+  const doc = await db.collection('products').doc(docId).get();
+  if (doc.exists) showProductModal(doc.data(), docId);
+}
+
+async function deleteProduct(docId) {
+  if (!confirm('Eliminar este producto? Esta accion no se puede deshacer.')) return;
+  try {
+    await db.collection('products').doc(docId).delete();
+    loadAllProducts();
+  } catch (err) { alert('Error al eliminar el producto.'); }
 }

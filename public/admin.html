@@ -54,7 +54,9 @@
     <!-- ═══ TABS ═══ -->
     <div class="tabs">
       <button class="tab-btn active" data-tab="tab-reservas">Reservas</button>
+      <button class="tab-btn" data-tab="tab-pedidos">Pedidos Cremas</button>
       <button class="tab-btn" data-tab="tab-servicios">Servicios</button>
+      <button class="tab-btn" data-tab="tab-productos">Productos</button>
       <button class="tab-btn" data-tab="tab-disponibilidad">Disponibilidad</button>
     </div>
 
@@ -83,6 +85,28 @@
       </div>
     </div>
 
+    <!-- ═══ TAB: Pedidos Cremas ═══ -->
+    <div id="tab-pedidos" class="tab-content">
+      <div class="flex-between mb-2" style="flex-wrap:wrap; gap:0.8rem;">
+        <h2>Pedidos de Cremas</h2>
+        <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center;">
+          <select class="form-control" id="filtro-estado-pedido" style="width:auto"
+            onchange="loadAllOrders(this.value)">
+            <option value="todos">Todos los estados</option>
+            <option value="pendiente">Con seña pagada</option>
+            <option value="completado">Completados</option>
+            <option value="cancelada">Cancelados</option>
+          </select>
+          <button class="btn btn-sm btn-secondary" onclick="document.getElementById('filtro-estado-pedido').value='todos'; loadAllOrders()">
+            Limpiar filtro
+          </button>
+        </div>
+      </div>
+      <div id="admin-orders">
+        <div class="loading-overlay"><div class="spinner"></div> Cargando...</div>
+      </div>
+    </div>
+
     <!-- ═══ TAB: Servicios ═══ -->
     <div id="tab-servicios" class="tab-content">
       <div class="flex-between mb-2" style="flex-wrap:wrap; gap:0.8rem;">
@@ -93,6 +117,20 @@
         </div>
       </div>
       <div id="admin-services-list">
+        <div class="loading-overlay"><div class="spinner"></div> Cargando...</div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: Productos (Cremas) ═══ -->
+    <div id="tab-productos" class="tab-content">
+      <div class="flex-between mb-2" style="flex-wrap:wrap; gap:0.8rem;">
+        <h2>Gestión de Productos</h2>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="showProductModal()">+ Nuevo producto</button>
+          <button class="btn btn-secondary" id="btn-seed-productos" onclick="seedProductos()">Cargar productos iniciales</button>
+        </div>
+      </div>
+      <div id="admin-products-list">
         <div class="loading-overlay"><div class="spinner"></div> Cargando...</div>
       </div>
     </div>
@@ -201,6 +239,7 @@
   <script src="js/firebase-config.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/admin.js"></script>
+  <script src="js/tienda.js"></script>
   <script>
     document.getElementById('navbar').innerHTML = getNavbarHTML();
     document.getElementById('footer').innerHTML = getFooterHTML();
@@ -216,6 +255,8 @@
       loadAgendaHoy();
       loadAllReservations();
       loadAllServices();
+      loadAllOrders();
+      loadAllProducts();
       renderDiasBloqueados();
       initHorariosBloqueadosSelect();
 
