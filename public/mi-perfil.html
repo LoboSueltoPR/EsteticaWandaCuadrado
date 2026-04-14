@@ -144,11 +144,9 @@
         }
       });
 
-      // Limpiar canceladas/vencidas de la BD (silencioso)
+      // Limpiar pendiente_pago vencidos (libera horarios y pedidos stale)
       cleanupMyExpiredReservations(user.uid);
-      cleanupMyCancelledReservations(user.uid);
       cleanupMyExpiredOrders(user.uid);
-      cleanupMyCancelledOrders(user.uid);
 
       // Historiales
       loadTreatmentHistory('historial-tratamientos');

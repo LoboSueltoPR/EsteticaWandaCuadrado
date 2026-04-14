@@ -13,12 +13,43 @@ function hide(el) {
   if (el) el.classList.add('hidden');
 }
 
-// ─── Alertas ───
-function showAlert(containerId, message, type = 'error') {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-  setTimeout(() => { container.innerHTML = ''; }, 5000);
+// ─── Toasts / Alertas ───
+function ensureToastContainer() {
+  let c = document.getElementById('toast-container');
+  if (!c) {
+    c = document.createElement('div');
+    c.id = 'toast-container';
+    document.body.appendChild(c);
+  }
+  return c;
+}
+
+function showToast(message, type = 'info', duration = 4500) {
+  const container = ensureToastContainer();
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+  const icon = type === 'success' ? '✓'
+             : type === 'error'   ? '✕'
+             : type === 'warning' ? '⚠'
+             : 'ℹ';
+  toast.innerHTML = `<span class="toast-icon" aria-hidden="true">${icon}</span><span class="toast-text"></span>`;
+  toast.querySelector('.toast-text').textContent = message;
+  container.appendChild(toast);
+
+  const remove = () => {
+    toast.classList.add('toast-leaving');
+    toast.addEventListener('animationend', () => toast.remove(), { once: true });
+  };
+  const timer = setTimeout(remove, duration);
+  toast.addEventListener('click', () => { clearTimeout(timer); remove(); });
+}
+
+// Compatibilidad: showAlert(containerId, message, type) → toast
+// containerId se ignora (se mantiene la firma para no romper llamadas existentes)
+function showAlert(_containerId, message, type = 'error') {
+  showToast(message, type);
 }
 
 function clearAlert(containerId) {
@@ -276,38 +307,6 @@ async function cleanupMyExpiredOrders(userId) {
     });
     if (count > 0) await batch.commit();
   } catch (err) { console.warn('Cleanup orders expired:', err.message); }
-}
-
-// ─── Limpiar reservas canceladas del usuario actual ───
-async function cleanupMyCancelledReservations(userId) {
-  try {
-    const snap = await db.collection('reservations')
-      .where('userId', '==', userId)
-      .where('estado', '==', 'cancelada')
-      .get();
-    if (snap.empty) return;
-    const batch = db.batch();
-    snap.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
-  } catch (err) {
-    console.warn('Cleanup canceladas:', err.message);
-  }
-}
-
-// ─── Limpiar pedidos cancelados del usuario actual ───
-async function cleanupMyCancelledOrders(userId) {
-  try {
-    const snap = await db.collection('orders')
-      .where('userId', '==', userId)
-      .where('estado', '==', 'cancelada')
-      .get();
-    if (snap.empty) return;
-    const batch = db.batch();
-    snap.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
-  } catch (err) {
-    console.warn('Cleanup pedidos cancelados:', err.message);
-  }
 }
 
 // ─── Formatear teléfono para WhatsApp (Argentina) ───

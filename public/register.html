@@ -32,11 +32,17 @@
         </div>
         <div class="form-group">
           <label for="reg-password">Contraseña *</label>
-          <input type="password" class="form-control" id="reg-password" placeholder="Mínimo 6 caracteres" required minlength="6">
+          <input type="password" class="form-control" id="reg-password" placeholder="Creá una contraseña" required minlength="8" aria-describedby="password-hints">
+          <ul id="password-hints" class="password-hints">
+            <li id="hint-length">Al menos 8 caracteres</li>
+            <li id="hint-letter">Al menos una letra</li>
+            <li id="hint-number">Al menos un número</li>
+          </ul>
         </div>
         <div class="form-group">
           <label for="reg-password2">Repetir contraseña *</label>
           <input type="password" class="form-control" id="reg-password2" placeholder="Repetí tu contraseña" required>
+          <small id="match-hint" class="password-hint-match"></small>
         </div>
         <button type="submit" class="btn btn-primary btn-block">Registrarme</button>
       </form>
@@ -64,6 +70,33 @@
     auth.onAuthStateChanged(user => {
       if (user) window.location.href = 'dashboard.html';
     });
+
+    // Validación de contraseña en vivo
+    const pwd  = document.getElementById('reg-password');
+    const pwd2 = document.getElementById('reg-password2');
+    const hintLength = document.getElementById('hint-length');
+    const hintLetter = document.getElementById('hint-letter');
+    const hintNumber = document.getElementById('hint-number');
+    const matchHint  = document.getElementById('match-hint');
+
+    function checkPassword() {
+      const v = pwd.value;
+      hintLength.classList.toggle('ok', v.length >= 8);
+      hintLetter.classList.toggle('ok', /[a-zA-Z]/.test(v));
+      hintNumber.classList.toggle('ok', /\d/.test(v));
+    }
+    function checkMatch() {
+      if (!pwd2.value) { matchHint.textContent = ''; matchHint.className = 'password-hint-match'; return; }
+      if (pwd.value === pwd2.value) {
+        matchHint.textContent = '✓ Las contraseñas coinciden';
+        matchHint.className = 'password-hint-match ok';
+      } else {
+        matchHint.textContent = '✕ Las contraseñas no coinciden';
+        matchHint.className = 'password-hint-match err';
+      }
+    }
+    pwd.addEventListener('input', () => { checkPassword(); checkMatch(); });
+    pwd2.addEventListener('input', checkMatch);
   </script>
 </body>
 </html>

@@ -37,11 +37,11 @@
   </div>
 
   <!-- Modal de pedido -->
-  <div class="modal-overlay" id="pedido-modal" onclick="if(event.target===this)cerrarModal()">
+  <div class="modal-overlay" id="pedido-modal" role="dialog" aria-modal="true" aria-labelledby="modal-nombre" onclick="if(event.target===this)cerrarModal()">
     <div class="modal-box">
       <div class="modal-header">
         <h3 id="modal-nombre">Producto</h3>
-        <button class="modal-close" onclick="cerrarModal()">✕</button>
+        <button class="modal-close" aria-label="Cerrar" onclick="cerrarModal()">✕</button>
       </div>
 
       <div id="pedido-alert"></div>
@@ -104,6 +104,13 @@
       btn.classList.add('active');
       loadProductos('productos-container', cat);
     }
+
+    // Cerrar modal con ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('pedido-modal').classList.contains('active')) {
+        cerrarModal();
+      }
+    });
   </script>
 </body>
 </html>

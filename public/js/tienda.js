@@ -23,11 +23,24 @@ async function loadProductos(containerId, categoriaFiltro = 'todos') {
     });
 
     if (!productos || productos.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>No hay productos disponibles.</p></div>';
+      container.innerHTML = `
+        <div class="empty-state">
+          <span class="empty-state-icon" aria-hidden="true">🧴</span>
+          <p>No hay cremas disponibles en este momento.<br>¡Volvé pronto!</p>
+        </div>`;
       return;
     }
 
     if (categoriaFiltro !== 'todos') productos = productos.filter(p => p.categoria === categoriaFiltro);
+
+    if (productos.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <span class="empty-state-icon" aria-hidden="true">🔍</span>
+          <p>No hay cremas en esta categoría.</p>
+        </div>`;
+      return;
+    }
 
     container.innerHTML = '';
     const grid = document.createElement('div');

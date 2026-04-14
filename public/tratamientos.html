@@ -91,7 +91,11 @@
       const container = document.getElementById('tratamientos-list');
 
       if (services.length === 0) {
-        container.innerHTML = '<div class="empty-state"><p>No se encontraron tratamientos.</p></div>';
+        container.innerHTML = `
+          <div class="empty-state">
+            <span class="empty-state-icon" aria-hidden="true">💆‍♀️</span>
+            <p>No se encontraron tratamientos.<br>Probá otro filtro.</p>
+          </div>`;
         return;
       }
 

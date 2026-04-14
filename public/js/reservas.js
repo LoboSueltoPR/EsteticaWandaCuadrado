@@ -174,7 +174,8 @@ async function loadMyReservations(containerId) {
     if (reservas.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <p>No tenés turnos próximos.</p>
+          <span class="empty-state-icon" aria-hidden="true">📅</span>
+          <p>No tenés turnos próximos.<br>¡Reservá uno cuando quieras!</p>
           <a href="nueva-reserva.html" class="btn btn-primary">Reservar turno</a>
         </div>`;
       return;
@@ -270,7 +271,11 @@ async function loadTreatmentHistory(containerId) {
     items.sort((a, b) => b.fecha.localeCompare(a.fecha) || b.hora.localeCompare(a.hora));
 
     if (items.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>Todavía no tenés historial de tratamientos.</p></div>';
+      container.innerHTML = `
+        <div class="empty-state">
+          <span class="empty-state-icon" aria-hidden="true">✨</span>
+          <p>Todavía no tenés historial de tratamientos.<br>Después de tu primer turno va a aparecer acá.</p>
+        </div>`;
       return;
     }
 
@@ -327,7 +332,12 @@ async function loadOrderHistory(containerId) {
     });
 
     if (items.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>Todavía no compraste ningún producto.</p></div>';
+      container.innerHTML = `
+        <div class="empty-state">
+          <span class="empty-state-icon" aria-hidden="true">🧴</span>
+          <p>Todavía no compraste ninguna crema.<br>¡Probá las artesanales de Wanda!</p>
+          <a href="mis-cremas.html" class="btn btn-primary">Ver cremas</a>
+        </div>`;
       return;
     }
 
