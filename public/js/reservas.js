@@ -534,9 +534,7 @@ function continuarPagoReserva(reservaId, initPoint) {
   if (initPoint) {
     window.location.href = initPoint;
   } else {
-    // Bypass DEV: simular aprobación directamente
-    const base = window.location.href.replace('mis-reservas.html', '').replace(/\?.*$/, '');
-    window.location.href = `${base}pago-exitoso.html?collection_status=approved&external_reference=${reservaId}&collection_id=DEV-${Date.now()}`;
+    showAlert('reserva-alert', 'No se encontró el link de pago. Cancelá la reserva y volvé a crearla.', 'error');
   }
 }
 
@@ -545,8 +543,6 @@ function continuarPagoOrden(pedidoId, initPoint) {
   if (initPoint) {
     window.location.href = initPoint;
   } else {
-    // Bypass DEV: simular aprobación directamente
-    const base = window.location.href.replace('mi-perfil.html', '').replace(/\?.*$/, '');
-    window.location.href = `${base}pago-pedido-exitoso.html?collection_status=approved&external_reference=${pedidoId}&collection_id=DEV-${Date.now()}`;
+    alert('No se encontró el link de pago. Por favor volvé a encargar el producto.');
   }
 }

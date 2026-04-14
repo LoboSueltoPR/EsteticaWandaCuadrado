@@ -107,15 +107,6 @@
           El turno se confirma al completar el pago.
         </p>
 
-        <!-- DEV bypass: solo aparece si config/mp.devBypass === true -->
-        <div id="dev-bypass-wrap" style="display:none; margin-top:1rem;">
-          <button type="button" id="btn-dev-bypass" class="btn btn-block" style="background:#7BAE7F;color:#fff;">
-            ⚡ Simular pago aprobado (DEV)
-          </button>
-          <p class="mp-note" style="color:#7BAE7F">
-            Modo desarrollo — Saltea Mercado Pago y marca el turno como pagado directamente.
-          </p>
-        </div>
       </form>
     </div>
   </div>
@@ -142,14 +133,6 @@
     requireAuth(async (user, userData) => {
       // Limpiar reservas pendiente_pago vencidas de este usuario
       cleanupMyExpiredReservations(user.uid);
-
-      // Mostrar botón DEV si está habilitado en config/mp
-      try {
-        const mpCfgDoc = await db.collection('config').doc('mp').get();
-        if (mpCfgDoc.exists && mpCfgDoc.data().devBypass === true) {
-          document.getElementById('dev-bypass-wrap').style.display = 'block';
-        }
-      } catch (e) { /* silencioso */ }
 
       await loadServicesSelect('reserva-servicio');
 
@@ -191,68 +174,6 @@
 
       document.getElementById('time-slots-container').addEventListener('click', () => {
         setTimeout(updateBtnState, 50);
-      });
-
-      // ── DEV Bypass: simula pago aprobado sin pasar por MP ──
-      document.getElementById('btn-dev-bypass').addEventListener('click', async () => {
-        const hora = document.getElementById('selected-time').value;
-        const opt  = servicioSelect.options[servicioSelect.selectedIndex];
-
-        if (!servicioSelect.value || !fechaInput.value || !hora) {
-          showAlert('reserva-alert', 'Completá todos los campos antes de simular el pago.');
-          return;
-        }
-        const precio = parseInt(opt.dataset.precio || 0, 10);
-        if (!precio || precio <= 0) {
-          showAlert('reserva-alert', 'El servicio necesita un precio cargado.');
-          return;
-        }
-
-        const devBtn = document.getElementById('btn-dev-bypass');
-        devBtn.disabled = true;
-        devBtn.textContent = 'Simulando...';
-
-        try {
-          const occupied = await getOccupiedSlots(fechaInput.value);
-          if (occupied.includes(hora)) {
-            showAlert('reserva-alert', 'Ese horario acaba de ocuparse.');
-            renderTimeSlots('time-slots-container', fechaInput.value);
-            devBtn.disabled = false;
-            devBtn.textContent = '⚡ Simular pago aprobado (DEV)';
-            return;
-          }
-
-          const senia    = Math.round(precio * 0.10);
-          const expiraAt = new Date(Date.now() + 10 * 60 * 1000);
-
-          const reservaRef = await db.collection('reservations').add({
-            userId:          user.uid,
-            nombreUsuario:   user.displayName || '',
-            emailUsuario:    user.email,
-            telefonoUsuario: (userData && userData.telefono) || '',
-            servicioId:      servicioSelect.value,
-            servicioNombre:  opt.dataset.nombre,
-            fecha:           fechaInput.value,
-            hora:            hora,
-            estado:          'pendiente_pago',
-            precioTotal:     precio,
-            senia:           senia,
-            expiraAt:        expiraAt,
-            paymentId:       null,
-            createdAt:       firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt:       firebase.firestore.FieldValue.serverTimestamp()
-          });
-
-          // Redirigir a pago-exitoso con los mismos params que MP
-          const fakePaymentId = 'DEV-' + Date.now();
-          const base = window.location.href.replace('nueva-reserva.html', '').replace(/\?.*$/, '');
-          window.location.href = `${base}pago-exitoso.html?collection_status=approved&external_reference=${reservaRef.id}&collection_id=${fakePaymentId}`;
-        } catch (err) {
-          console.error('DEV bypass error:', err);
-          showAlert('reserva-alert', 'Error al simular el pago: ' + err.message);
-          devBtn.disabled = false;
-          devBtn.textContent = '⚡ Simular pago aprobado (DEV)';
-        }
       });
 
       document.getElementById('reserva-form').addEventListener('submit', async (e) => {
