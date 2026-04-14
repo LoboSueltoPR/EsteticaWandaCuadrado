@@ -134,7 +134,7 @@ async function handleCreateReservation(e) {
   }
 }
 
-// ─── Cargar mis reservas ───
+// ─── Cargar mis reservas activas (solo próximas, no historial) ───
 async function loadMyReservations(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -145,16 +145,26 @@ async function loadMyReservations(containerId) {
   container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Cargando reservas...</div>';
 
   try {
+    const today = getTodayStr();
     const snapshot = await db.collection('reservations')
       .where('userId', '==', user.uid)
-      .orderBy('fecha', 'desc')
-      .orderBy('hora', 'desc')
       .get();
 
-    if (snapshot.empty) {
+    // Filtrar y ordenar client-side para evitar índices compuestos
+    let reservas = [];
+    snapshot.forEach(doc => {
+      const r = doc.data();
+      // Solo activas futuras: pendiente o confirmada, fecha >= hoy
+      if ((r.estado === 'pendiente' || r.estado === 'confirmada') && r.fecha >= today) {
+        reservas.push({ id: doc.id, ...r });
+      }
+    });
+    reservas.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora.localeCompare(b.hora));
+
+    if (reservas.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <p>No tenés reservas todavía.</p>
+          <p>No tenés turnos próximos.</p>
           <a href="nueva-reserva.html" class="btn btn-primary">Reservar turno</a>
         </div>`;
       return;
@@ -174,9 +184,7 @@ async function loadMyReservations(containerId) {
         </thead>
         <tbody>`;
 
-    snapshot.forEach(doc => {
-      const r = doc.data();
-      const canEdit = r.estado !== 'cancelada';
+    reservas.forEach(r => {
       html += `
           <tr>
             <td>${r.servicioNombre}</td>
@@ -185,8 +193,8 @@ async function loadMyReservations(containerId) {
             <td><span class="badge badge-${r.estado}">${r.estado}</span></td>
             <td>
               <div class="btn-group">
-                ${canEdit ? `<a href="editar-reserva.html?id=${doc.id}" class="btn btn-sm btn-secondary">Editar</a>` : ''}
-                ${canEdit ? `<button class="btn btn-sm btn-danger" onclick="cancelReservation('${doc.id}')">Cancelar</button>` : ''}
+                <a href="editar-reserva.html?id=${r.id}" class="btn btn-sm btn-secondary">Editar</a>
+                <button class="btn btn-sm btn-danger" onclick="cancelReservation('${r.id}')">Cancelar</button>
               </div>
             </td>
           </tr>`;
@@ -200,40 +208,52 @@ async function loadMyReservations(containerId) {
   }
 }
 
-// ─── Historial de tratamientos realizados ───
-async function loadTreatmentHistory(containerId, wrapperClass) {
+// ─── Historial completo de tratamientos (pasados, cancelados, etc) ───
+async function loadTreatmentHistory(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   const user = auth.currentUser;
   if (!user) return;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayStr();
 
   try {
     const snapshot = await db.collection('reservations')
       .where('userId', '==', user.uid)
-      .where('estado', '==', 'confirmada')
-      .where('fecha', '<', today)
-      .orderBy('fecha', 'desc')
       .get();
 
-    if (snapshot.empty) return; // no mostrar la sección si no hay historial
-
-    // Mostrar el wrapper
-    const wrapper = document.querySelector('.' + wrapperClass) || document.getElementById(wrapperClass);
-    if (wrapper) wrapper.classList.remove('hidden');
-    const hiddenEl = document.getElementById('historial-container');
-    if (hiddenEl) hiddenEl.classList.remove('hidden');
-
-    let html = '<div class="historial-grid">';
+    // Historial = canceladas + todas las pasadas (ya no "próximas")
+    let items = [];
     snapshot.forEach(doc => {
       const r = doc.data();
+      if (r.estado === 'pendiente_pago') return; // nunca mostrar las sin pagar
+      const esPasada   = r.fecha < today;
+      const esCancelada = r.estado === 'cancelada';
+      if (esPasada || esCancelada) {
+        items.push({ id: doc.id, ...r });
+      }
+    });
+
+    items.sort((a, b) => b.fecha.localeCompare(a.fecha) || b.hora.localeCompare(a.hora));
+
+    if (items.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>Todavía no tenés historial de tratamientos.</p></div>';
+      return;
+    }
+
+    let html = '<div class="historial-grid">';
+    items.forEach(r => {
+      const estadoLabel = r.estado === 'cancelada' ? 'Cancelado'
+                        : (r.fecha < today ? 'Realizado' : r.estado);
       html += `
         <div class="historial-item">
-          <div class="historial-fecha">${formatDate(r.fecha)}</div>
+          <div class="historial-fecha">${formatDate(r.fecha)} · ${r.hora} hs</div>
           <div class="historial-servicio">${r.servicioNombre}</div>
-          ${r.precioTotal ? `<div class="historial-precio">$${r.precioTotal.toLocaleString('es-AR')}</div>` : ''}
+          <div class="historial-meta">
+            <span class="badge badge-${r.estado}">${estadoLabel}</span>
+            ${r.precioTotal ? `<span class="historial-precio">$${r.precioTotal.toLocaleString('es-AR')}</span>` : ''}
+          </div>
         </div>`;
     });
     html += '</div>';
@@ -241,6 +261,115 @@ async function loadTreatmentHistory(containerId, wrapperClass) {
 
   } catch (err) {
     console.warn('Error al cargar historial:', err.message);
+    container.innerHTML = '<div class="alert alert-error">Error al cargar el historial.</div>';
+  }
+}
+
+// ─── Historial de pedidos de cremas (completados + cancelados) ───
+async function loadOrderHistory(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const snapshot = await db.collection('orders')
+      .where('userId', '==', user.uid)
+      .get();
+
+    let items = [];
+    snapshot.forEach(doc => {
+      const p = doc.data();
+      if (p.estado === 'pendiente_pago') return;
+      // Historial: solo los ya finalizados
+      if (p.estado === 'completado' || p.estado === 'cancelada') {
+        items.push({ id: doc.id, ...p });
+      }
+    });
+
+    // Ordenar por createdAt desc
+    items.sort((a, b) => {
+      const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+
+    if (items.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>Todavía no compraste ningún producto.</p></div>';
+      return;
+    }
+
+    let html = '<div class="historial-grid">';
+    items.forEach(p => {
+      const fecha = p.createdAt ? formatDateTime(p.createdAt) : '—';
+      const estadoLabel = p.estado === 'completado' ? 'Entregado' : 'Cancelado';
+      html += `
+        <div class="historial-item">
+          <div class="historial-fecha">${fecha}</div>
+          <div class="historial-servicio">${p.productoNombre}</div>
+          <div class="historial-meta">
+            <span class="badge badge-${p.estado}">${estadoLabel}</span>
+            ${p.precio ? `<span class="historial-precio">$${p.precio.toLocaleString('es-AR')}</span>` : ''}
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+
+  } catch (err) {
+    console.warn('Error al cargar historial de pedidos:', err.message);
+    container.innerHTML = '<div class="alert alert-error">Error al cargar el historial.</div>';
+  }
+}
+
+// ─── Pedidos de cremas activos (con seña pagada, no entregados) ───
+async function loadMyActiveOrders(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const snapshot = await db.collection('orders')
+      .where('userId', '==', user.uid)
+      .get();
+
+    let items = [];
+    snapshot.forEach(doc => {
+      const p = doc.data();
+      if (p.estado === 'pendiente') items.push({ id: doc.id, ...p });
+    });
+
+    items.sort((a, b) => {
+      const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+
+    if (items.length === 0) {
+      container.innerHTML = '<p class="text-muted" style="padding:.5rem 0;font-size:.9rem">No tenés pedidos en preparación.</p>';
+      return;
+    }
+
+    let html = '<div class="historial-grid">';
+    items.forEach(p => {
+      const saldo = (p.precio || 0) - (p.senia || 0);
+      html += `
+        <div class="historial-item">
+          <div class="historial-fecha">${formatDateTime(p.createdAt)}</div>
+          <div class="historial-servicio">${p.productoNombre}</div>
+          <div class="historial-meta">
+            <span class="badge badge-pendiente">En preparación</span>
+            <span class="historial-precio">Saldo: $${saldo.toLocaleString('es-AR')}</span>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } catch (err) {
+    console.warn('Error al cargar pedidos activos:', err.message);
   }
 }
 

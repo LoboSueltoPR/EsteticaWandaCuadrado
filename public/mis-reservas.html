@@ -41,21 +41,13 @@
 
     <!-- Turnos próximos / activos -->
     <div class="page-header" style="text-align:left; margin-bottom:1rem;">
-      <h2>Mis turnos</h2>
+      <h2>Mis próximos turnos</h2>
+      <p class="text-muted" style="font-size:.9rem">El historial completo está en <a href="mi-perfil.html">Mi Perfil</a>.</p>
     </div>
 
     <div id="reserva-alert"></div>
     <div id="reservations-list">
       <div class="loading-overlay"><div class="spinner"></div> Cargando reservas...</div>
-    </div>
-
-    <!-- Historial de tratamientos realizados -->
-    <div id="historial-container" class="hidden" style="margin-top:2rem;">
-      <div class="page-header" style="text-align:left; margin-bottom:1rem;">
-        <h2>Tratamientos realizados</h2>
-        <p class="text-muted" style="font-size:0.9rem">Tu historial de servicios completados</p>
-      </div>
-      <div id="historial-list"></div>
     </div>
 
   </div>
@@ -114,9 +106,6 @@
 
       // ── Turnos activos ──
       await loadMyReservations('reservations-list');
-
-      // ── Historial de tratamientos realizados ──
-      await loadTreatmentHistory('historial-list', 'historial-container');
     });
   </script>
 </body>

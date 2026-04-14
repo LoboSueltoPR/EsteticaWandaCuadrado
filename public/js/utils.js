@@ -94,6 +94,9 @@ function initNavbar() {
     const adminLinks = document.querySelectorAll('.nav-admin');
     const clientLinks = document.querySelectorAll('.nav-client');
 
+    // Elementos visibles para todos menos admin (ej: tratamientos, mis cremas)
+    const noAdminLinks = document.querySelectorAll('.nav-no-admin');
+
     if (user) {
       guestLinks.forEach(el => el.style.display = 'none');
       authLinks.forEach(el => el.style.display = '');
@@ -103,23 +106,27 @@ function initNavbar() {
         const isAdmin = userDoc.exists && userDoc.data().rol === 'admin';
 
         if (isAdmin) {
-          // Admin: muestra panel admin, oculta links de cliente
+          // Admin: muestra panel admin, oculta links de cliente/tienda
           adminLinks.forEach(el => el.style.display = '');
           clientLinks.forEach(el => el.style.display = 'none');
+          noAdminLinks.forEach(el => el.style.display = 'none');
         } else {
           // Cliente: muestra links propios, oculta admin
           adminLinks.forEach(el => el.style.display = 'none');
           clientLinks.forEach(el => el.style.display = '');
+          noAdminLinks.forEach(el => el.style.display = '');
         }
       } catch {
         adminLinks.forEach(el => el.style.display = 'none');
         clientLinks.forEach(el => el.style.display = '');
+        noAdminLinks.forEach(el => el.style.display = '');
       }
     } else {
       guestLinks.forEach(el => el.style.display = '');
       authLinks.forEach(el => el.style.display = 'none');
       adminLinks.forEach(el => el.style.display = 'none');
       clientLinks.forEach(el => el.style.display = 'none');
+      noAdminLinks.forEach(el => el.style.display = '');
     }
   });
 }
@@ -202,12 +209,13 @@ function getNavbarHTML() {
       </button>
       <ul class="navbar-links">
         <li><a href="index.html">Inicio</a></li>
-        <li><a href="tratamientos.html">Tratamientos</a></li>
-        <li><a href="mis-cremas.html">Mis Cremas</a></li>
+        <li class="nav-no-admin"><a href="tratamientos.html">Tratamientos</a></li>
+        <li class="nav-no-admin"><a href="mis-cremas.html">Cremas</a></li>
 
         <!-- Solo clientes -->
         <li class="nav-auth nav-client" style="display:none"><a href="mis-reservas.html">Mis Reservas</a></li>
         <li class="nav-auth nav-client" style="display:none"><a href="nueva-reserva.html">Reservar turno</a></li>
+        <li class="nav-auth nav-client" style="display:none"><a href="mi-perfil.html">Mi Perfil</a></li>
 
         <!-- Solo admin -->
         <li class="nav-admin" style="display:none"><a href="admin.html">Panel Admin</a></li>

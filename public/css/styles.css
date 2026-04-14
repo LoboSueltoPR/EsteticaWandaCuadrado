@@ -593,8 +593,26 @@ tbody tr:hover {
 .historial-precio {
   font-size: 0.8rem;
   color: var(--color-primary);
-  margin-top: 0.3rem;
   font-weight: 500;
+}
+
+.historial-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-top: .6rem;
+  flex-wrap: wrap;
+}
+
+.historial-meta .badge {
+  font-size: .7rem;
+  padding: .15rem .5rem;
+}
+
+/* ─── Perfil ─── */
+@media (max-width: 600px) {
+  .perfil-grid { grid-template-columns: 1fr !important; }
 }
 
 /* ─── Hero (Home) ─── */
