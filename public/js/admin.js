@@ -106,8 +106,8 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
     let reservas = [];
     snapshot.forEach(doc => reservas.push({ id: doc.id, ...doc.data() }));
 
-    // Nunca mostrar pendiente_pago (hasta que no esté confirmado no aparece)
-    reservas = reservas.filter(r => r.estado !== 'pendiente_pago');
+    // Nunca mostrar pendiente_pago ni canceladas: salen del panel del admin
+    reservas = reservas.filter(r => r.estado !== 'pendiente_pago' && r.estado !== 'cancelada');
     if (filtroEstado !== 'todos') reservas = reservas.filter(r => r.estado === filtroEstado);
     if (filtroFecha) reservas = reservas.filter(r => r.fecha === filtroFecha);
 
@@ -611,8 +611,8 @@ async function loadAllOrders(filtroEstado = 'todos') {
     let pedidos = [];
     snapshot.forEach(doc => pedidos.push({ id: doc.id, ...doc.data() }));
 
-    // Nunca mostrar pendiente_pago
-    pedidos = pedidos.filter(p => p.estado !== 'pendiente_pago');
+    // Nunca mostrar pendiente_pago ni cancelados: salen del panel del admin
+    pedidos = pedidos.filter(p => p.estado !== 'pendiente_pago' && p.estado !== 'cancelada');
     if (filtroEstado !== 'todos') pedidos = pedidos.filter(p => p.estado === filtroEstado);
 
     if (pedidos.length === 0) {
