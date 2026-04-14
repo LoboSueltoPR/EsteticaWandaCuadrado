@@ -133,10 +133,7 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
 
     reservas.forEach(r => {
       const waPhone = formatWAPhone(r.telefonoUsuario || '');
-      const waMensaje = encodeURIComponent(
-        `Hola ${r.nombreUsuario || 'clienta'}, te recordamos tu turno de *${r.servicioNombre}* para el *${formatDate(r.fecha)} a las ${r.hora}hs*. ¡Te esperamos! 💆‍♀️`
-      );
-      const waLink = waPhone ? `https://wa.me/${waPhone}?text=${waMensaje}` : '';
+      const waLink  = waPhone ? buildWAUrl(waPhone, buildReservaReminderMessage(r)) : '';
 
       html += `
           <tr>
@@ -151,7 +148,7 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
             <td><span class="badge badge-${r.estado}">${r.estado}</span></td>
             <td>
               <div class="btn-group">
-                ${waLink ? `<a class="btn btn-sm btn-whatsapp" href="${waLink}" target="_blank">WhatsApp</a>` : ''}
+                ${waLink ? `<a class="btn btn-sm btn-whatsapp" href="${waLink}" target="_blank" title="Enviar recordatorio por WhatsApp">📱 Recordatorio</a>` : ''}
                 ${r.estado !== 'cancelada' ? `<button class="btn btn-sm btn-danger" onclick="cancelReservationAdmin('${r.id}')">Cancelar</button>` : ''}
               </div>
             </td>
@@ -633,8 +630,7 @@ async function loadAllOrders(filtroEstado = 'todos') {
       const fecha   = p.createdAt ? formatDateTime(p.createdAt) : '—';
       const saldo   = (p.precio || 0) - (p.senia || 0);
       const waPhone = formatWAPhone(p.telefonoUsuario || '');
-      const waMsg   = encodeURIComponent('Hola ' + (p.nombreUsuario || 'clienta') + ', tu pedido de *' + p.productoNombre + '* está listo para retirar. El saldo a abonar es $' + saldo.toLocaleString('es-AR') + '. Te esperamos!');
-      const waLink  = waPhone ? 'https://wa.me/' + waPhone + '?text=' + waMsg : '';
+      const waLink  = waPhone ? buildWAUrl(waPhone, buildPedidoReadyMessage(p)) : '';
 
       html += '<tr>' +
         '<td style="font-size:.82rem">' + fecha + '</td>' +
@@ -645,7 +641,7 @@ async function loadAllOrders(filtroEstado = 'todos') {
         '<td>$' + saldo.toLocaleString('es-AR') + '</td>' +
         '<td><span class="badge badge-' + p.estado + '">' + p.estado + '</span></td>' +
         '<td><div class="btn-group">' +
-        (waLink ? '<a class="btn btn-sm btn-whatsapp" href="' + waLink + '" target="_blank">WhatsApp</a>' : '') +
+        (waLink ? '<a class="btn btn-sm btn-whatsapp" href="' + waLink + '" target="_blank" title="Avisar que el pedido está listo">📱 Avisar listo</a>' : '') +
         (p.estado === 'pendiente' ? '<button class="btn btn-sm btn-success" onclick="completeOrder(\'' + p.id + '\')">Entregado</button>' : '') +
         (p.estado !== 'cancelada' ? '<button class="btn btn-sm btn-danger" onclick="cancelOrderAdmin(\'' + p.id + '\')">Cancelar</button>' : '') +
         '</div></td></tr>';

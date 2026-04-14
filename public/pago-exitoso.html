@@ -124,6 +124,8 @@
 
           if (r) {
             const saldoRestante = (r.precioTotal || 0) - (r.senia || 0);
+            const waMsg  = buildReservaConfirmMessage(r);
+            const waLink = buildWAUrl(BUSINESS_WA_PHONE, waMsg);
             card.innerHTML = `
               <div class="result-icon success">✅</div>
               <h1>¡Turno reservado!</h1>
@@ -135,10 +137,16 @@
                 <div class="result-detail-row"><span>Seña pagada</span><strong>$${(r.senia||0).toLocaleString('es-AR')}</strong></div>
                 ${saldoRestante > 0 ? `<div class="result-detail-row"><span>Saldo el día del turno</span><strong>$${saldoRestante.toLocaleString('es-AR')}</strong></div>` : ''}
               </div>
+              <p style="font-size:.9rem;color:var(--color-primary-dark);margin:1rem 0 .2rem">
+                📱 Te abrimos WhatsApp para que mandes la confirmación a ${BUSINESS_NAME}.
+              </p>
               <div class="btn-group-center">
+                <a href="${waLink}" target="_blank" class="btn btn-whatsapp">Enviar confirmación por WhatsApp</a>
                 <a href="mis-reservas.html" class="btn btn-primary">Ver mis reservas</a>
                 <a href="nueva-reserva.html" class="btn btn-secondary">Reservar otro turno</a>
               </div>`;
+            // Abrir WhatsApp automáticamente en nueva pestaña
+            setTimeout(() => { window.open(waLink, '_blank'); }, 800);
           } else {
             showGenericSuccess(card);
           }

@@ -259,6 +259,79 @@ function formatWAPhone(tel) {
   return '549' + digits;
 }
 
+// ─── WhatsApp del negocio (Wanda) ───
+const BUSINESS_WA_PHONE = '5492914362710';
+const BUSINESS_NAME     = 'Wanda';
+
+// ─── Construir link de WhatsApp con mensaje pre-llenado ───
+function buildWAUrl(phone, text) {
+  if (!phone) return '';
+  return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text || '');
+}
+
+// ─── Mensaje: confirmación de reserva (cliente → negocio) ───
+function buildReservaConfirmMessage(reserva) {
+  const saldo = (reserva.precioTotal || 0) - (reserva.senia || 0);
+  const lineas = [
+    'Hola ' + BUSINESS_NAME + '! Acabo de reservar un turno 💆‍♀️',
+    '',
+    '*Servicio:* ' + (reserva.servicioNombre || '—'),
+    '*Fecha:* ' + formatDate(reserva.fecha || ''),
+    '*Horario:* ' + (reserva.hora || '—') + ' hs',
+    '*Seña pagada:* $' + (reserva.senia || 0).toLocaleString('es-AR')
+  ];
+  if (saldo > 0) lineas.push('*Saldo a abonar el día del turno:* $' + saldo.toLocaleString('es-AR'));
+  lineas.push('', 'Quedo atenta, ¡gracias!');
+  return lineas.join('\n');
+}
+
+// ─── Mensaje: recordatorio de turno (negocio → cliente) ───
+function buildReservaReminderMessage(reserva) {
+  const saldo = (reserva.precioTotal || 0) - (reserva.senia || 0);
+  const nombre = (reserva.nombreUsuario || 'clienta').split(' ')[0];
+  const lineas = [
+    '¡Hola ' + nombre + '! 💆‍♀️ Te escribo de parte de ' + BUSINESS_NAME + '.',
+    '',
+    'Te recuerdo tu turno:',
+    '*Servicio:* ' + (reserva.servicioNombre || '—'),
+    '*Fecha:* ' + formatDate(reserva.fecha || ''),
+    '*Horario:* ' + (reserva.hora || '—') + ' hs'
+  ];
+  if (saldo > 0) lineas.push('*Saldo a abonar:* $' + saldo.toLocaleString('es-AR'));
+  lineas.push('', '¡Te espero! Cualquier cosa, avisame.');
+  return lineas.join('\n');
+}
+
+// ─── Mensaje: confirmación de pedido de crema (cliente → negocio) ───
+function buildPedidoConfirmMessage(pedido) {
+  const saldo = (pedido.precio || 0) - (pedido.senia || 0);
+  const lineas = [
+    'Hola ' + BUSINESS_NAME + '! Hice un pedido de crema 🧴',
+    '',
+    '*Producto:* ' + (pedido.productoNombre || '—'),
+    '*Seña pagada:* $' + (pedido.senia || 0).toLocaleString('es-AR'),
+    '*Saldo al retirar:* $' + saldo.toLocaleString('es-AR'),
+    '',
+    '¿Me avisás cuando esté listo para coordinar el retiro? ¡Gracias!'
+  ];
+  return lineas.join('\n');
+}
+
+// ─── Mensaje: pedido listo para retirar (negocio → cliente) ───
+function buildPedidoReadyMessage(pedido) {
+  const saldo = (pedido.precio || 0) - (pedido.senia || 0);
+  const nombre = (pedido.nombreUsuario || 'clienta').split(' ')[0];
+  const lineas = [
+    '¡Hola ' + nombre + '! 🧴 Te escribo de parte de ' + BUSINESS_NAME + '.',
+    '',
+    'Tu pedido de *' + (pedido.productoNombre || '—') + '* está listo para retirar.',
+    '*Saldo a abonar:* $' + saldo.toLocaleString('es-AR'),
+    '',
+    'Avisame cuándo podés pasar y coordinamos. ¡Gracias!'
+  ];
+  return lineas.join('\n');
+}
+
 // ─── Footer ───
 function getFooterHTML() {
   const year = new Date().getFullYear();

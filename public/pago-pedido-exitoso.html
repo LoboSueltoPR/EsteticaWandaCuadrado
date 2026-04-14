@@ -76,7 +76,9 @@
           const p   = doc.exists ? doc.data() : null;
 
           if (p) {
-            const saldo = (p.precio || 0) - (p.senia || 0);
+            const saldo  = (p.precio || 0) - (p.senia || 0);
+            const waMsg  = buildPedidoConfirmMessage(p);
+            const waLink = buildWAUrl(BUSINESS_WA_PHONE, waMsg);
             card.innerHTML = `
               <div class="result-icon success">✅</div>
               <h1>¡Pedido confirmado!</h1>
@@ -86,13 +88,15 @@
                 <div class="result-detail-row"><span>Seña pagada</span><strong>$${(p.senia||0).toLocaleString('es-AR')}</strong></div>
                 <div class="result-detail-row"><span>Saldo al retirar</span><strong>$${saldo.toLocaleString('es-AR')}</strong></div>
               </div>
-              <p style="font-size:.85rem;color:var(--color-text-muted)">
-                Cuando tu pedido esté listo, Wanda te va a avisar por WhatsApp para coordinar el retiro.
+              <p style="font-size:.9rem;color:var(--color-primary-dark);margin:1rem 0 .2rem">
+                📱 Te abrimos WhatsApp para avisarle a ${BUSINESS_NAME} de tu pedido.
               </p>
               <div class="btn-group-center">
+                <a href="${waLink}" target="_blank" class="btn btn-whatsapp">Enviar confirmación por WhatsApp</a>
                 <a href="mis-cremas.html" class="btn btn-primary">Seguir comprando</a>
                 <a href="index.html" class="btn btn-secondary">Volver al inicio</a>
               </div>`;
+            setTimeout(() => { window.open(waLink, '_blank'); }, 800);
           } else { showOk(card); }
         } catch (err) { console.error(err); showOk(card); }
         return;
