@@ -1172,3 +1172,124 @@ tbody tr:hover {
   .user-profile-bar { flex-direction: column; align-items: flex-start; }
   .proximo-turno-card { flex-direction: column; align-items: flex-start; }
 }
+
+/* ─── Admin: secciones colapsables (Catálogo / Configuración) ─── */
+.admin-seccion {
+  margin-top: 2rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.admin-seccion-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  background: var(--color-bg-alt);
+  border-bottom: 1.5px solid transparent;
+  transition: background 0.2s;
+}
+
+.admin-seccion-header::-webkit-details-marker { display: none; }
+
+.admin-seccion[open] .admin-seccion-header {
+  border-bottom-color: var(--color-border);
+}
+
+.admin-seccion-header:hover {
+  background: var(--color-primary-light);
+}
+
+.admin-seccion-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.admin-seccion-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.admin-seccion-desc {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-left: 0.1rem;
+}
+
+.admin-seccion-arrow {
+  margin-left: auto;
+  font-size: 1.4rem;
+  color: var(--color-text-muted);
+  transition: transform 0.25s ease;
+  line-height: 1;
+}
+
+.admin-seccion[open] .admin-seccion-arrow {
+  transform: rotate(90deg);
+}
+
+.admin-seccion--config .admin-seccion-header {
+  background: #F5F0F8;
+}
+
+.admin-seccion--config .admin-seccion-header:hover {
+  background: #EAE3F2;
+}
+
+.admin-seccion-body {
+  padding: 1.5rem 1.25rem;
+}
+
+/* ─── Sub-tabs dentro de secciones colapsables ─── */
+.subtabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 0;
+}
+
+.subtab-btn {
+  padding: 0.5rem 1.1rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.subtab-btn:hover {
+  color: var(--color-primary);
+}
+
+.subtab-btn.active {
+  color: var(--color-primary-dark);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.subtab-content {
+  display: none;
+}
+
+.subtab-content.active {
+  display: block;
+}
+
+@media (max-width: 600px) {
+  .admin-seccion-desc { display: none; }
+  .admin-seccion-body { padding: 1rem 0.75rem; }
+}

@@ -733,14 +733,19 @@ async function loadAllProducts() {
   container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Cargando...</div>';
 
   try {
-    const snapshot = await db.collection('products').orderBy('categoria').orderBy('nombre').get();
+    const snapshot = await db.collection('products').get();
     if (snapshot.empty) {
       container.innerHTML = '<div class="empty-state"><p>No hay productos. Usa el boton para cargar los iniciales.</p></div>';
       return;
     }
-    let html = '<div class="table-responsive"><table><thead><tr><th>Nombre</th><th>Categoria</th><th>Tamano</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
-    snapshot.forEach(doc => {
-      const p = doc.data();
+    // Ordenar client-side para evitar requerir índice compuesto en Firestore
+    let prods = [];
+    snapshot.forEach(doc => prods.push({ _id: doc.id, ...doc.data() }));
+    prods.sort((a, b) => (a.categoria||'').localeCompare(b.categoria||'') || (a.nombre||'').localeCompare(b.nombre||''));
+
+    let html = '<div class="table-responsive"><table><thead><tr><th>Nombre</th><th>Categoría</th><th>Tamaño</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
+    prods.forEach(p => {
+      const docId = p._id;
       html += '<tr>' +
         '<td><strong>' + p.nombre + '</strong></td>' +
         '<td>' + p.categoria + '</td>' +
@@ -748,8 +753,8 @@ async function loadAllProducts() {
         '<td>' + (p.precio ? '$' + p.precio.toLocaleString('es-AR') : '<span style="color:var(--color-warning)">Sin precio</span>') + '</td>' +
         '<td><span class="badge ' + (p.activo ? 'badge-confirmada' : 'badge-cancelada') + '">' + (p.activo ? 'Activo' : 'Inactivo') + '</span></td>' +
         '<td><div class="btn-group">' +
-        '<button class="btn btn-sm btn-secondary" onclick="editProductModal(\'' + doc.id + '\')">Editar</button>' +
-        '<button class="btn btn-sm btn-danger" onclick="deleteProduct(\'' + doc.id + '\')">Eliminar</button>' +
+        '<button class="btn btn-sm btn-secondary" onclick="editProductModal(\'' + docId + '\')">Editar</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteProduct(\'' + docId + '\')">Eliminar</button>' +
         '</div></td></tr>';
     });
     html += '</tbody></table></div>';
