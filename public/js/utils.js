@@ -332,6 +332,82 @@ function buildPedidoReadyMessage(pedido) {
   return lineas.join('\n');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Cache en localStorage con TTL (reduce lecturas a Firestore)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Uso:
+//   const productos = await cachedFetch('products:activos', 15*60*1000, async () => {
+//     const snap = await db.collection('products').where('activo','==',true).get();
+//     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+//   });
+//
+// Invalidación (después de escribir):
+//   invalidateCache('products:activos');
+//   invalidateCachePrefix('products:');
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CACHE_PREFIX = 'ewc:cache:';
+
+async function cachedFetch(key, ttlMs, fetcher) {
+  const fullKey = CACHE_PREFIX + key;
+
+  // Intentar leer de cache
+  try {
+    const raw = localStorage.getItem(fullKey);
+    if (raw) {
+      const { data, exp } = JSON.parse(raw);
+      if (exp && Date.now() < exp) {
+        return data;
+      }
+      // Expirado: limpiar
+      localStorage.removeItem(fullKey);
+    }
+  } catch (err) {
+    // localStorage deshabilitado o JSON corrupto: seguir sin cache
+    console.warn('[cache] lectura falló:', err.message);
+  }
+
+  // Miss o expirado: ir a la fuente
+  const data = await fetcher();
+
+  try {
+    localStorage.setItem(fullKey, JSON.stringify({
+      data,
+      exp:  Date.now() + ttlMs,
+      ts:   Date.now()
+    }));
+  } catch (err) {
+    // Quota exceeded o privado: no bloquear
+    console.warn('[cache] escritura falló:', err.message);
+  }
+
+  return data;
+}
+
+function invalidateCache(key) {
+  try { localStorage.removeItem(CACHE_PREFIX + key); } catch {}
+}
+
+function invalidateCachePrefix(prefix) {
+  try {
+    const full = CACHE_PREFIX + prefix;
+    const toDelete = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(full)) toDelete.push(k);
+    }
+    toDelete.forEach(k => localStorage.removeItem(k));
+  } catch {}
+}
+
+// TTLs estándar (milisegundos)
+const CACHE_TTL = {
+  PRODUCTS: 15 * 60 * 1000, //  15 minutos
+  SERVICES: 15 * 60 * 1000, //  15 minutos
+  CONFIG:   30 * 60 * 1000  //  30 minutos
+};
+
 // ─── Footer ───
 function getFooterHTML() {
   const year = new Date().getFullYear();

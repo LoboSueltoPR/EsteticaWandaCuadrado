@@ -2,26 +2,31 @@
    Tienda — Cremas artesanales Wanda Cuadrado
    ============================================================ */
 
-// ─── Cargar y renderizar productos ───
+// ─── Cargar y renderizar productos (con cache local) ───
 async function loadProductos(containerId, categoriaFiltro = 'todos') {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Cargando productos...</div>';
 
   try {
-    const snapshot = await db.collection('products')
-      .where('activo', '==', true)
-      .orderBy('categoria')
-      .orderBy('nombre')
-      .get();
+    // Lectura cacheada: primero localStorage (TTL 15min), si expira va a Firestore
+    let productos = await cachedFetch('products:activos', CACHE_TTL.PRODUCTS, async () => {
+      const snap = await db.collection('products').where('activo', '==', true).get();
+      const arr = [];
+      snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
+      // Orden client-side (evita índice compuesto)
+      arr.sort((a, b) =>
+        (a.categoria || '').localeCompare(b.categoria || '') ||
+        (a.nombre || '').localeCompare(b.nombre || '')
+      );
+      return arr;
+    });
 
-    if (snapshot.empty) {
+    if (!productos || productos.length === 0) {
       container.innerHTML = '<div class="empty-state"><p>No hay productos disponibles.</p></div>';
       return;
     }
 
-    let productos = [];
-    snapshot.forEach(doc => productos.push({ id: doc.id, ...doc.data() }));
     if (categoriaFiltro !== 'todos') productos = productos.filter(p => p.categoria === categoriaFiltro);
 
     container.innerHTML = '';
@@ -224,7 +229,7 @@ async function seedProductos() {
   for (const p of lista) {
     if (!existing.has(p.nombre)) { batch.set(db.collection('products').doc(), p); count++; }
   }
-  if (count > 0) { await batch.commit(); alert(`Se cargaron ${count} productos.`); if (typeof loadAllProducts === 'function') loadAllProducts(); }
+  if (count > 0) { await batch.commit(); invalidateCachePrefix('products:'); alert(`Se cargaron ${count} productos.`); if (typeof loadAllProducts === 'function') loadAllProducts(); }
   else { alert('Todos los productos ya estaban cargados.'); }
   if (btn) btn.disabled = false;
 }

@@ -18,5 +18,17 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// ─── Cache persistente en IndexedDB ───
+// Reduce lecturas al servidor: las consultas ya leídas quedan disponibles
+// offline y entre recargas de la página. synchronizeTabs habilita el uso
+// simultáneo en múltiples pestañas del mismo navegador.
+db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    console.warn('[firestore] Persistencia no habilitada: otra pestaña sin soporte está abierta.');
+  } else if (err.code === 'unimplemented') {
+    console.warn('[firestore] Persistencia no soportada en este navegador.');
+  }
+});
+
 // Idioma de errores en español
 auth.languageCode = 'es';

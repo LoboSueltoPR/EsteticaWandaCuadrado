@@ -65,21 +65,20 @@
 
     let allServices = [];
 
-    // Cargar todos los servicios activos
+    // Cargar todos los servicios activos (con cache local)
     async function loadTratamientos() {
       const container = document.getElementById('tratamientos-list');
       try {
-        const snapshot = await db.collection('services')
-          .where('activo', '==', true)
-          .orderBy('categoria')
-          .orderBy('nombre')
-          .get();
-
-        allServices = [];
-        snapshot.forEach(doc => {
-          allServices.push({ id: doc.id, ...doc.data() });
+        allServices = await cachedFetch('services:activos', CACHE_TTL.SERVICES, async () => {
+          const snap = await db.collection('services').where('activo', '==', true).get();
+          const arr = [];
+          snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
+          arr.sort((a, b) =>
+            (a.categoria || '').localeCompare(b.categoria || '') ||
+            (a.nombre || '').localeCompare(b.nombre || '')
+          );
+          return arr;
         });
-
         renderTratamientos(allServices);
       } catch (err) {
         console.error('Error al cargar tratamientos:', err);

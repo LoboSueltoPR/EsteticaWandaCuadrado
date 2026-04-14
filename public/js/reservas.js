@@ -2,25 +2,29 @@
    Reservas — CRUD de turnos
    ============================================================ */
 
-// ─── Cargar servicios activos en un <select> ───
+// ─── Cargar servicios activos en un <select> (con cache local) ───
 async function loadServicesSelect(selectId) {
   const select = document.getElementById(selectId);
   if (!select) return;
 
   select.innerHTML = '<option value="">Seleccioná un servicio...</option>';
 
-  const snapshot = await db.collection('services')
-    .where('activo', '==', true)
-    .orderBy('categoria')
-    .orderBy('nombre')
-    .get();
+  // Lectura cacheada con TTL — reduce hits a Firestore
+  const servicios = await cachedFetch('services:activos', CACHE_TTL.SERVICES, async () => {
+    const snap = await db.collection('services').where('activo', '==', true).get();
+    const arr = [];
+    snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
+    arr.sort((a, b) =>
+      (a.categoria || '').localeCompare(b.categoria || '') ||
+      (a.nombre || '').localeCompare(b.nombre || '')
+    );
+    return arr;
+  });
 
   let currentCat = '';
   let optgroup = null;
 
-  snapshot.forEach(doc => {
-    const s = doc.data();
-    // Agrupar por categoría
+  servicios.forEach(s => {
     if (s.categoria !== currentCat) {
       currentCat = s.categoria;
       optgroup = document.createElement('optgroup');
@@ -28,7 +32,7 @@ async function loadServicesSelect(selectId) {
       select.appendChild(optgroup);
     }
     const option = document.createElement('option');
-    option.value = doc.id;
+    option.value = s.id;
     option.textContent = `${s.nombre} (${s.duracionMin} min)`;
     option.dataset.nombre = s.nombre;
     option.dataset.duracion = s.duracionMin;

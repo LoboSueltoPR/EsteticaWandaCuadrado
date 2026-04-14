@@ -333,6 +333,7 @@ async function loadAllServices() {
 async function toggleServiceActive(id, nuevoEstado) {
   try {
     await db.collection('services').doc(id).update({ activo: nuevoEstado });
+    invalidateCachePrefix('services:');
     loadAllServices();
   } catch (err) { console.error(err); }
 }
@@ -398,6 +399,7 @@ function showServiceModal(data = null, docId = null) {
     try {
       if (isEdit) { await db.collection('services').doc(docId).update(d); }
       else { await db.collection('services').add(d); }
+      invalidateCachePrefix('services:');
       overlay.remove();
       loadAllServices();
     } catch { showAlert('service-modal-alert', 'Error al guardar.'); }
@@ -589,7 +591,7 @@ async function seedServices() {
   for (const svc of services) {
     if (!existing.has(svc.nombre)) { batch.set(db.collection('services').doc(), svc); count++; }
   }
-  if (count > 0) { await batch.commit(); alert(`Se cargaron ${count} servicios nuevos.`); }
+  if (count > 0) { await batch.commit(); invalidateCachePrefix('services:'); alert(`Se cargaron ${count} servicios nuevos.`); }
   else { alert('Todos los servicios ya estaban cargados.'); }
   if (btn) btn.disabled = false;
   loadAllServices();
@@ -802,6 +804,7 @@ function showProductModal(data, docId) {
     try {
       if (isEdit) { await db.collection('products').doc(docId).update(d); }
       else { await db.collection('products').add(d); }
+      invalidateCachePrefix('products:');
       overlay.remove();
       loadAllProducts();
     } catch (err) { showAlert('product-modal-alert', 'Error al guardar.'); }
@@ -817,6 +820,7 @@ async function deleteProduct(docId) {
   if (!confirm('Eliminar este producto? Esta accion no se puede deshacer.')) return;
   try {
     await db.collection('products').doc(docId).delete();
+    invalidateCachePrefix('products:');
     loadAllProducts();
   } catch (err) { alert('Error al eliminar el producto.'); }
 }
