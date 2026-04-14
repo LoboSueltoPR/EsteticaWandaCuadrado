@@ -223,14 +223,13 @@ async function loadTreatmentHistory(containerId) {
       .where('userId', '==', user.uid)
       .get();
 
-    // Historial = canceladas + todas las pasadas (ya no "próximas")
+    // Historial = turnos pasados (ya realizados) — sin canceladas
     let items = [];
     snapshot.forEach(doc => {
       const r = doc.data();
-      if (r.estado === 'pendiente_pago') return; // nunca mostrar las sin pagar
-      const esPasada   = r.fecha < today;
-      const esCancelada = r.estado === 'cancelada';
-      if (esPasada || esCancelada) {
+      if (r.estado === 'pendiente_pago') return;
+      if (r.estado === 'cancelada') return; // no mostrar canceladas en perfil
+      if (r.fecha < today) {
         items.push({ id: doc.id, ...r });
       }
     });
@@ -244,8 +243,7 @@ async function loadTreatmentHistory(containerId) {
 
     let html = '<div class="historial-grid">';
     items.forEach(r => {
-      const estadoLabel = r.estado === 'cancelada' ? 'Cancelado'
-                        : (r.fecha < today ? 'Realizado' : r.estado);
+      const estadoLabel = 'Realizado';
       html += `
         <div class="historial-item">
           <div class="historial-fecha">${formatDate(r.fecha)} · ${r.hora} hs</div>
@@ -282,8 +280,8 @@ async function loadOrderHistory(containerId) {
     snapshot.forEach(doc => {
       const p = doc.data();
       if (p.estado === 'pendiente_pago') return;
-      // Historial: solo los ya finalizados
-      if (p.estado === 'completado' || p.estado === 'cancelada') {
+      // Historial: solo los entregados (no mostrar cancelados)
+      if (p.estado === 'completado') {
         items.push({ id: doc.id, ...p });
       }
     });
@@ -303,7 +301,7 @@ async function loadOrderHistory(containerId) {
     let html = '<div class="historial-grid">';
     items.forEach(p => {
       const fecha = p.createdAt ? formatDateTime(p.createdAt) : '—';
-      const estadoLabel = p.estado === 'completado' ? 'Entregado' : 'Cancelado';
+      const estadoLabel = 'Entregado';
       html += `
         <div class="historial-item">
           <div class="historial-fecha">${fecha}</div>

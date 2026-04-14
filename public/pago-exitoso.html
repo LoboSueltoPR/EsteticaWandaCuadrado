@@ -110,9 +110,9 @@
       // ── Pago aprobado ──
       if (collectionStatus === 'approved' && reservaId) {
         try {
-          // Actualizar la reserva a "pendiente" (turno confirmado)
+          // Actualizar la reserva a "confirmada" (seña recibida)
           await db.collection('reservations').doc(reservaId).update({
-            estado:        'pendiente',
+            estado:        'confirmada',
             paymentId:     paymentId || null,
             paymentStatus: 'approved',
             updatedAt:     firebase.firestore.FieldValue.serverTimestamp()

@@ -257,6 +257,59 @@ async function cleanupMyExpiredReservations(userId) {
   }
 }
 
+// ─── Limpiar pedidos pendiente_pago vencidos del usuario actual ───
+async function cleanupMyExpiredOrders(userId) {
+  try {
+    const now  = new Date();
+    const snap = await db.collection('orders')
+      .where('userId', '==', userId)
+      .where('estado', '==', 'pendiente_pago')
+      .get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    let count = 0;
+    snap.forEach(doc => {
+      const exp = doc.data().expiraAt;
+      if (!exp) return;
+      const expDate = exp.toDate ? exp.toDate() : new Date(exp);
+      if (expDate <= now) { batch.delete(doc.ref); count++; }
+    });
+    if (count > 0) await batch.commit();
+  } catch (err) { console.warn('Cleanup orders expired:', err.message); }
+}
+
+// ─── Limpiar reservas canceladas del usuario actual ───
+async function cleanupMyCancelledReservations(userId) {
+  try {
+    const snap = await db.collection('reservations')
+      .where('userId', '==', userId)
+      .where('estado', '==', 'cancelada')
+      .get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    snap.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+  } catch (err) {
+    console.warn('Cleanup canceladas:', err.message);
+  }
+}
+
+// ─── Limpiar pedidos cancelados del usuario actual ───
+async function cleanupMyCancelledOrders(userId) {
+  try {
+    const snap = await db.collection('orders')
+      .where('userId', '==', userId)
+      .where('estado', '==', 'cancelada')
+      .get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    snap.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+  } catch (err) {
+    console.warn('Cleanup pedidos cancelados:', err.message);
+  }
+}
+
 // ─── Formatear teléfono para WhatsApp (Argentina) ───
 function formatWAPhone(tel) {
   if (!tel) return '';

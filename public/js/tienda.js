@@ -180,26 +180,61 @@ async function procesarPedido() {
   }
 }
 
-// ─── Limpiar pedidos vencidos del usuario ───
-async function cleanupMyExpiredOrders(userId) {
+// ─── DEV Bypass: simula pago aprobado sin pasar por MP ───
+async function procesarPedidoDev() {
+  const btn            = document.getElementById('modal-btn-dev');
+  const mpBtn          = document.getElementById('modal-btn-pagar');
+  const productoId     = mpBtn.dataset.productoId;
+  const productoNombre = mpBtn.dataset.nombre;
+  const precio         = parseInt(mpBtn.dataset.precio, 10);
+  const user           = auth.currentUser;
+
+  if (!user) { window.location.href = 'login.html'; return; }
+  if (!productoId || !precio) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Simulando...';
+
   try {
-    const now  = new Date();
-    const snap = await db.collection('orders')
-      .where('userId', '==', userId)
-      .where('estado', '==', 'pendiente_pago')
-      .get();
-    if (snap.empty) return;
-    const batch = db.batch();
-    let count = 0;
-    snap.forEach(doc => {
-      const exp     = doc.data().expiraAt;
-      if (!exp) return;
-      const expDate = exp.toDate ? exp.toDate() : new Date(exp);
-      if (expDate <= now) { batch.delete(doc.ref); count++; }
+    // Teléfono del usuario
+    let telefonoUsuario = '';
+    try {
+      const uDoc = await db.collection('users').doc(user.uid).get();
+      if (uDoc.exists) telefonoUsuario = uDoc.data().telefono || '';
+    } catch (e) {}
+
+    const senia    = Math.round(precio * 0.10);
+    const expiraAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    const pedidoRef = await db.collection('orders').add({
+      userId:          user.uid,
+      nombreUsuario:   user.displayName || '',
+      emailUsuario:    user.email,
+      telefonoUsuario: telefonoUsuario,
+      productoId,
+      productoNombre,
+      precio,
+      senia,
+      estado:          'pendiente_pago',
+      paymentId:       null,
+      paymentStatus:   null,
+      expiraAt,
+      createdAt:       firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt:       firebase.firestore.FieldValue.serverTimestamp()
     });
-    if (count > 0) await batch.commit();
-  } catch (err) { console.warn('Cleanup orders:', err.message); }
+
+    const fakePaymentId = 'DEV-' + Date.now();
+    const base = window.location.href.replace('mis-cremas.html', '').replace(/\?.*$/, '');
+    window.location.href = `${base}pago-pedido-exitoso.html?collection_status=approved&external_reference=${pedidoRef.id}&collection_id=${fakePaymentId}`;
+
+  } catch (err) {
+    console.error('DEV bypass error:', err);
+    showAlert('pedido-alert', 'Error al simular el pago: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = '⚡ Simular pago aprobado (DEV)';
+  }
 }
+
 
 // ─── Seed productos iniciales ───
 async function seedProductos() {

@@ -60,7 +60,7 @@
     <!-- Historial de tratamientos -->
     <div id="tab-historial-tratamientos" class="tab-content active">
       <h3 class="mb-2">Historial de tratamientos</h3>
-      <p class="text-muted mb-2" style="font-size:.85rem">Turnos realizados y cancelados</p>
+      <p class="text-muted mb-2" style="font-size:.85rem">Turnos realizados</p>
       <div id="historial-tratamientos">
         <div class="loading-overlay"><div class="spinner"></div> Cargando...</div>
       </div>
@@ -75,7 +75,7 @@
       </div>
 
       <h3 class="mb-1">Historial de compras</h3>
-      <p class="text-muted mb-2" style="font-size:.85rem">Cremas retiradas y pedidos cancelados</p>
+      <p class="text-muted mb-2" style="font-size:.85rem">Cremas retiradas</p>
       <div id="historial-cremas">
         <div class="loading-overlay"><div class="spinner"></div> Cargando...</div>
       </div>
@@ -143,6 +143,12 @@
           showAlert('perfil-alert', 'No se pudieron guardar los cambios.');
         }
       });
+
+      // Limpiar canceladas/vencidas de la BD (silencioso)
+      cleanupMyExpiredReservations(user.uid);
+      cleanupMyCancelledReservations(user.uid);
+      cleanupMyExpiredOrders(user.uid);
+      cleanupMyCancelledOrders(user.uid);
 
       // Historiales
       loadTreatmentHistory('historial-tratamientos');

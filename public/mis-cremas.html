@@ -68,6 +68,11 @@
       <button id="modal-btn-pagar" class="btn btn-mp btn-block" onclick="procesarPedido()">
         Pagar seña con Mercado Pago
       </button>
+
+      <!-- DEV bypass: solo visible si config/mp.devBypass === true -->
+      <button id="modal-btn-dev" class="btn btn-block" style="display:none; margin-top:.6rem; background:#7BAE7F; color:#fff;" onclick="procesarPedidoDev()">
+        ⚡ Simular pago aprobado (DEV)
+      </button>
     </div>
   </div>
 
@@ -97,6 +102,16 @@
     auth.onAuthStateChanged(user => {
       if (user) cleanupMyExpiredOrders(user.uid);
     });
+
+    // Mostrar botón DEV si está habilitado en config/mp
+    (async () => {
+      try {
+        const mpCfgDoc = await db.collection('config').doc('mp').get();
+        if (mpCfgDoc.exists && mpCfgDoc.data().devBypass === true) {
+          document.getElementById('modal-btn-dev').style.display = 'block';
+        }
+      } catch (e) {}
+    })();
 
     function filtrar(btn, cat) {
       document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
