@@ -171,6 +171,10 @@ async function procesarPedido() {
 
     const pref      = await mpRes.json();
     const initPoint = sandbox ? pref.sandbox_init_point : pref.init_point;
+
+    // Guardar initPoint para poder reanudar si se cierra la ventana
+    await pedidoRef.update({ initPoint });
+
     window.location.href = initPoint;
 
   } catch (err) {

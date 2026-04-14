@@ -357,7 +357,10 @@
           const preference = await mpResponse.json();
           const initPoint  = sandbox ? preference.sandbox_init_point : preference.init_point;
 
-          // 5. Redirigir al checkout de MP
+          // 5. Guardar initPoint para poder reanudar si se cierra la ventana
+          await reservaRef.update({ initPoint });
+
+          // 6. Redirigir al checkout de MP
           window.location.href = initPoint;
 
         } catch (err) {

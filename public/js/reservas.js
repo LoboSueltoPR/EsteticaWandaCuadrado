@@ -151,12 +151,22 @@ async function loadMyReservations(containerId) {
       .get();
 
     // Filtrar y ordenar client-side para evitar índices compuestos
+    const now = new Date();
     let reservas = [];
     snapshot.forEach(doc => {
-      const r = doc.data();
-      // Solo activas futuras: pendiente o confirmada, fecha >= hoy
-      if ((r.estado === 'pendiente' || r.estado === 'confirmada') && r.fecha >= today) {
-        reservas.push({ id: doc.id, ...r });
+      const r = { id: doc.id, ...doc.data() };
+      if (r.fecha < today) return; // pasadas no
+
+      if (r.estado === 'pendiente_pago') {
+        // Incluir solo si no venció aún
+        const exp = r.expiraAt;
+        const expDate = exp ? (exp.toDate ? exp.toDate() : new Date(exp)) : null;
+        if (expDate && expDate > now) reservas.push(r);
+        return;
+      }
+
+      if (r.estado === 'pendiente' || r.estado === 'confirmada') {
+        reservas.push(r);
       }
     });
     reservas.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora.localeCompare(b.hora));
@@ -185,7 +195,29 @@ async function loadMyReservations(containerId) {
         <tbody>`;
 
     reservas.forEach(r => {
-      html += `
+      if (r.estado === 'pendiente_pago') {
+        // Calcular minutos restantes
+        const exp = r.expiraAt;
+        const expDate = exp ? (exp.toDate ? exp.toDate() : new Date(exp)) : null;
+        const minsLeft = expDate ? Math.max(0, Math.ceil((expDate - now) / 60000)) : 0;
+        const initPoint = r.initPoint || '';
+        html += `
+          <tr style="background:#FFFBEB">
+            <td>${r.servicioNombre}</td>
+            <td>${formatDate(r.fecha)}</td>
+            <td>${r.hora}</td>
+            <td>
+              <span class="badge" style="background:#f59e0b;color:#fff">Pago pendiente</span>
+              <br><small style="color:#92400e;font-size:.75rem">Expira en ${minsLeft} min</small>
+            </td>
+            <td>
+              <button class="btn btn-sm btn-mp" onclick="continuarPagoReserva('${r.id}','${initPoint}')">
+                Continuar pago
+              </button>
+            </td>
+          </tr>`;
+      } else {
+        html += `
           <tr>
             <td>${r.servicioNombre}</td>
             <td>${formatDate(r.fecha)}</td>
@@ -198,6 +230,7 @@ async function loadMyReservations(containerId) {
               </div>
             </td>
           </tr>`;
+      }
     });
 
     html += '</tbody></table></div>';
@@ -334,10 +367,18 @@ async function loadMyActiveOrders(containerId) {
       .where('userId', '==', user.uid)
       .get();
 
+    const now = new Date();
     let items = [];
     snapshot.forEach(doc => {
-      const p = doc.data();
-      if (p.estado === 'pendiente') items.push({ id: doc.id, ...p });
+      const p = { id: doc.id, ...doc.data() };
+      if (p.estado === 'pendiente') {
+        items.push(p);
+      } else if (p.estado === 'pendiente_pago') {
+        // Incluir solo si no venció aún
+        const exp = p.expiraAt;
+        const expDate = exp ? (exp.toDate ? exp.toDate() : new Date(exp)) : null;
+        if (expDate && expDate > now) items.push(p);
+      }
     });
 
     items.sort((a, b) => {
@@ -354,15 +395,36 @@ async function loadMyActiveOrders(containerId) {
     let html = '<div class="historial-grid">';
     items.forEach(p => {
       const saldo = (p.precio || 0) - (p.senia || 0);
-      html += `
-        <div class="historial-item">
-          <div class="historial-fecha">${formatDateTime(p.createdAt)}</div>
-          <div class="historial-servicio">${p.productoNombre}</div>
-          <div class="historial-meta">
-            <span class="badge badge-pendiente">En preparación</span>
-            <span class="historial-precio">Saldo: $${saldo.toLocaleString('es-AR')}</span>
-          </div>
-        </div>`;
+      if (p.estado === 'pendiente_pago') {
+        const exp = p.expiraAt;
+        const expDate = exp ? (exp.toDate ? exp.toDate() : new Date(exp)) : null;
+        const minsLeft = expDate ? Math.max(0, Math.ceil((expDate - now) / 60000)) : 0;
+        const initPoint = p.initPoint || '';
+        html += `
+          <div class="historial-item" style="border-left:3px solid #f59e0b">
+            <div class="historial-fecha">${formatDateTime(p.createdAt)}</div>
+            <div class="historial-servicio">${p.productoNombre}</div>
+            <div class="historial-meta">
+              <span class="badge" style="background:#f59e0b;color:#fff">Pago pendiente</span>
+              <small style="color:#92400e;font-size:.75rem">Expira en ${minsLeft} min</small>
+            </div>
+            <div style="margin-top:.6rem">
+              <button class="btn btn-sm btn-mp" onclick="continuarPagoOrden('${p.id}','${initPoint}')">
+                Continuar pago
+              </button>
+            </div>
+          </div>`;
+      } else {
+        html += `
+          <div class="historial-item">
+            <div class="historial-fecha">${formatDateTime(p.createdAt)}</div>
+            <div class="historial-servicio">${p.productoNombre}</div>
+            <div class="historial-meta">
+              <span class="badge badge-pendiente">En preparación</span>
+              <span class="historial-precio">Saldo: $${saldo.toLocaleString('es-AR')}</span>
+            </div>
+          </div>`;
+      }
     });
     html += '</div>';
     container.innerHTML = html;
@@ -464,5 +526,27 @@ async function handleEditReservation(e, reservationId) {
     console.error('Error al editar reserva:', err);
     showAlert('reserva-alert', 'Error al actualizar la reserva.');
     btn.disabled = false;
+  }
+}
+
+// ─── Reanudar pago de reserva pendiente ───
+function continuarPagoReserva(reservaId, initPoint) {
+  if (initPoint) {
+    window.location.href = initPoint;
+  } else {
+    // Bypass DEV: simular aprobación directamente
+    const base = window.location.href.replace('mis-reservas.html', '').replace(/\?.*$/, '');
+    window.location.href = `${base}pago-exitoso.html?collection_status=approved&external_reference=${reservaId}&collection_id=DEV-${Date.now()}`;
+  }
+}
+
+// ─── Reanudar pago de pedido de crema pendiente ───
+function continuarPagoOrden(pedidoId, initPoint) {
+  if (initPoint) {
+    window.location.href = initPoint;
+  } else {
+    // Bypass DEV: simular aprobación directamente
+    const base = window.location.href.replace('mi-perfil.html', '').replace(/\?.*$/, '');
+    window.location.href = `${base}pago-pedido-exitoso.html?collection_status=approved&external_reference=${pedidoId}&collection_id=DEV-${Date.now()}`;
   }
 }
