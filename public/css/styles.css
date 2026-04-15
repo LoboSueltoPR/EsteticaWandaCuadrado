@@ -575,6 +575,101 @@ tbody tr:hover {
 
 .badge-completado { background: #E8F5E9; color: #2E7D32; }
 
+/* ─── Botón nombre de cliente (tabla admin) ─── */
+.btn-cliente {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  font-weight: 500;
+}
+.btn-cliente:hover { color: var(--color-primary); }
+
+/* ─── Ficha de cliente (modal) ─── */
+.ficha-box { max-width: 640px; width: 95vw; }
+
+.ficha-contacto {
+  display: flex;
+  gap: .6rem;
+  margin: .8rem 0 1.1rem;
+  flex-wrap: wrap;
+}
+
+.ficha-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .7rem;
+  margin-bottom: 1.2rem;
+}
+
+.ficha-stat {
+  background: var(--color-bg-alt);
+  border-radius: var(--radius-sm);
+  padding: .7rem .5rem;
+  text-align: center;
+}
+.ficha-stat span {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 600;
+  font-family: var(--font-display);
+  color: var(--color-primary-dark);
+  line-height: 1.2;
+}
+.ficha-stat small {
+  font-size: .72rem;
+  color: var(--color-text-muted);
+}
+
+.ficha-section-title {
+  font-size: .88rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--color-text-muted);
+  margin-bottom: .5rem;
+}
+
+.ficha-historial {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: .2rem;
+}
+
+.ficha-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .8rem;
+  padding: .55rem .7rem;
+  background: var(--color-bg-alt);
+  border-radius: var(--radius-sm);
+}
+
+.ficha-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  min-width: 0;
+}
+
+.ficha-item-info strong {
+  font-size: .88rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ficha-item-info small { font-size: .76rem; }
+
 /* ─── Historial de tratamientos ─── */
 .historial-grid {
   display: grid;

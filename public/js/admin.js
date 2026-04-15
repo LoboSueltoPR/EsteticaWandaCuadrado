@@ -131,25 +131,41 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
         </thead>
         <tbody>`;
 
+    // Mapa de datos para ficha de cliente (evita problemas con comillas en nombres)
+    window._fichaData = window._fichaData || {};
+
     reservas.forEach(r => {
       const waPhone = formatWAPhone(r.telefonoUsuario || '');
       const waLink  = waPhone ? buildWAUrl(waPhone, buildReservaReminderMessage(r)) : '';
+      if (r.userId) {
+        window._fichaData[r.userId] = {
+          nombre:   r.nombreUsuario  || '',
+          email:    r.emailUsuario   || '',
+          telefono: r.telefonoUsuario || ''
+        };
+      }
+
+      const estadoLabel = r.estado === 'completado' ? 'Realizado' : r.estado;
+      const puedeCompletar = r.estado === 'confirmada' || r.estado === 'pendiente';
 
       html += `
           <tr>
             <td>${formatDate(r.fecha)}</td>
             <td><strong>${r.hora}</strong></td>
             <td>
-              <span>${r.nombreUsuario || 'Sin nombre'}</span><br>
-              <small class="text-muted">${r.emailUsuario || ''}</small>
+              ${r.userId
+                ? `<button class="btn-cliente" onclick="abrirFichaCliente('${r.userId}')">${r.nombreUsuario || 'Sin nombre'}</button>`
+                : `<span>${r.nombreUsuario || 'Sin nombre'}</span>`}
+              <br><small class="text-muted">${r.emailUsuario || ''}</small>
               ${r.telefonoUsuario ? `<br><small class="text-muted">📱 ${r.telefonoUsuario}</small>` : ''}
             </td>
             <td>${r.servicioNombre}</td>
-            <td><span class="badge badge-${r.estado}">${r.estado}</span></td>
+            <td><span class="badge badge-${r.estado}">${estadoLabel}</span></td>
             <td>
               <div class="btn-group">
                 ${waLink ? `<a class="btn btn-sm btn-whatsapp" href="${waLink}" target="_blank" title="Enviar recordatorio por WhatsApp">📱 Recordatorio</a>` : ''}
-                ${r.estado !== 'cancelada' ? `<button class="btn btn-sm btn-danger" onclick="cancelReservationAdmin('${r.id}')">Cancelar</button>` : ''}
+                ${puedeCompletar ? `<button class="btn btn-sm btn-success" onclick="completeReservation('${r.id}')">✓ Realizado</button>` : ''}
+                ${r.estado !== 'cancelada' && r.estado !== 'completado' ? `<button class="btn btn-sm btn-danger" onclick="cancelReservationAdmin('${r.id}')">Cancelar</button>` : ''}
               </div>
             </td>
           </tr>`;
@@ -264,6 +280,24 @@ async function cancelarEnFirestore(id, extra = {}) {
     loadAgendaHoy();
   } catch (err) {
     alert('Error al cancelar la reserva.');
+  }
+}
+
+// ─── RESERVAS: Marcar como realizado ───
+async function completeReservation(id) {
+  if (!confirm('¿Marcar este turno como realizado?')) return;
+  try {
+    await db.collection('reservations').doc(id).update({
+      estado:    'completado',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    const filtroEstado = document.getElementById('filtro-estado').value;
+    const filtroFecha  = document.getElementById('filtro-fecha').value;
+    loadAllReservations(filtroEstado, filtroFecha);
+    loadAdminStats();
+    loadAgendaHoy();
+  } catch (err) {
+    alert('Error al actualizar la reserva.');
   }
 }
 
@@ -628,15 +662,28 @@ async function loadAllOrders(filtroEstado = 'todos') {
           <th>Seña</th><th>Saldo</th><th>Estado</th><th>Acciones</th>
         </tr></thead><tbody>`;
 
+    window._fichaData = window._fichaData || {};
+
     pedidos.forEach(p => {
       const fecha   = p.createdAt ? formatDateTime(p.createdAt) : '—';
       const saldo   = (p.precio || 0) - (p.senia || 0);
       const waPhone = formatWAPhone(p.telefonoUsuario || '');
       const waLink  = waPhone ? buildWAUrl(waPhone, buildPedidoReadyMessage(p)) : '';
+      if (p.userId) {
+        window._fichaData[p.userId] = {
+          nombre:   p.nombreUsuario  || '',
+          email:    p.emailUsuario   || '',
+          telefono: p.telefonoUsuario || ''
+        };
+      }
+
+      const clienteBtn = p.userId
+        ? '<button class="btn-cliente" onclick="abrirFichaCliente(\'' + p.userId + '\')">' + (p.nombreUsuario || 'Sin nombre') + '</button>'
+        : '<span>' + (p.nombreUsuario || 'Sin nombre') + '</span>';
 
       html += '<tr>' +
         '<td style="font-size:.82rem">' + fecha + '</td>' +
-        '<td><span>' + (p.nombreUsuario || 'Sin nombre') + '</span><br><small class="text-muted">' + (p.emailUsuario || '') + '</small>' +
+        '<td>' + clienteBtn + '<br><small class="text-muted">' + (p.emailUsuario || '') + '</small>' +
         (p.telefonoUsuario ? '<br><small class="text-muted">📱 ' + p.telefonoUsuario + '</small>' : '') + '</td>' +
         '<td><strong>' + p.productoNombre + '</strong></td>' +
         '<td>$' + (p.senia || 0).toLocaleString('es-AR') + '</td>' +
@@ -823,4 +870,137 @@ async function deleteProduct(docId) {
     invalidateCachePrefix('products:');
     loadAllProducts();
   } catch (err) { alert('Error al eliminar el producto.'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FICHA DE CLIENTE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function abrirFichaCliente(userId) {
+  const info = (window._fichaData || {})[userId] || {};
+  const nombre   = info.nombre   || 'Sin nombre';
+  const email    = info.email    || '';
+  const telefono = info.telefono || '';
+
+  // Quitar modal previo si existe
+  const prev = document.getElementById('ficha-modal');
+  if (prev) prev.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay active';
+  overlay.id = 'ficha-modal';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+
+  const waPhone = formatWAPhone(telefono);
+  const contactBtns = telefono ? `
+    <div class="ficha-contacto">
+      <a href="tel:${telefono}" class="btn btn-sm btn-secondary">📞 Llamar</a>
+      <a href="${buildWAUrl(waPhone, 'Hola ' + nombre + '!')}" target="_blank" class="btn btn-sm btn-whatsapp">📱 WhatsApp</a>
+    </div>` : '';
+
+  overlay.innerHTML = `
+    <div class="modal-box ficha-box">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin-bottom:.1rem">${nombre}</h3>
+          <p style="font-size:.82rem;color:var(--color-text-muted);margin:0">${email}${telefono ? ' · 📱 ' + telefono : ''}</p>
+        </div>
+        <button class="modal-close" aria-label="Cerrar" onclick="document.getElementById('ficha-modal').remove()">✕</button>
+      </div>
+      ${contactBtns}
+      <div id="ficha-body">
+        <div style="padding:2rem;text-align:center"><div class="spinner" style="margin:0 auto"></div></div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  const escHandler = e => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); } };
+  document.addEventListener('keydown', escHandler);
+
+  try {
+    const [resSnap, ordSnap] = await Promise.all([
+      db.collection('reservations').where('userId', '==', userId).get(),
+      db.collection('orders').where('userId', '==', userId).get()
+    ]);
+
+    // Procesar reservas (excluir pendiente_pago)
+    let reservas = [];
+    resSnap.forEach(doc => {
+      const r = { id: doc.id, ...doc.data() };
+      if (r.estado !== 'pendiente_pago') reservas.push(r);
+    });
+    reservas.sort((a, b) => b.fecha.localeCompare(a.fecha) || b.hora.localeCompare(a.hora));
+
+    // Procesar pedidos (excluir pendiente_pago)
+    let pedidos = [];
+    ordSnap.forEach(doc => {
+      const p = { id: doc.id, ...doc.data() };
+      if (p.estado !== 'pendiente_pago') pedidos.push(p);
+    });
+    pedidos.sort((a, b) => {
+      const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+
+    // Stats
+    const turnosRealizados = reservas.filter(r => r.estado === 'completado').length;
+    const turnosFuturos    = reservas.filter(r => ['pendiente','confirmada'].includes(r.estado)).length;
+    const totalSenias = [
+      ...reservas.filter(r => r.paymentStatus === 'approved').map(r => r.senia || 0),
+      ...pedidos.filter(p => p.paymentStatus === 'approved').map(p => p.senia || 0)
+    ].reduce((s, v) => s + v, 0);
+
+    let html = `
+      <div class="ficha-stats">
+        <div class="ficha-stat"><span>${turnosRealizados}</span><small>Turnos realizados</small></div>
+        <div class="ficha-stat"><span>${turnosFuturos}</span><small>Turnos activos</small></div>
+        <div class="ficha-stat"><span>$${totalSenias.toLocaleString('es-AR')}</span><small>Total en señas</small></div>
+      </div>`;
+
+    // Turnos
+    html += '<h4 class="ficha-section-title">Turnos</h4>';
+    if (reservas.length === 0) {
+      html += '<p class="text-muted" style="font-size:.85rem;padding:.4rem 0 .8rem">Sin turnos registrados.</p>';
+    } else {
+      html += '<div class="ficha-historial">';
+      reservas.forEach(r => {
+        const lbl = { completado:'Realizado', cancelada:'Cancelado', confirmada:'Confirmado', pendiente:'Pendiente' }[r.estado] || r.estado;
+        html += `
+          <div class="ficha-item">
+            <div class="ficha-item-info">
+              <strong>${r.servicioNombre}</strong>
+              <small class="text-muted">${formatDate(r.fecha)} · ${r.hora} hs</small>
+            </div>
+            <span class="badge badge-${r.estado}">${lbl}</span>
+          </div>`;
+      });
+      html += '</div>';
+    }
+
+    // Pedidos de cremas
+    if (pedidos.length > 0) {
+      html += '<h4 class="ficha-section-title" style="margin-top:1.1rem">Cremas</h4>';
+      html += '<div class="ficha-historial">';
+      pedidos.forEach(p => {
+        const lbl = { completado:'Entregado', cancelada:'Cancelado', pendiente:'En preparación' }[p.estado] || p.estado;
+        html += `
+          <div class="ficha-item">
+            <div class="ficha-item-info">
+              <strong>${p.productoNombre}</strong>
+              <small class="text-muted">${formatDateTime(p.createdAt)}</small>
+            </div>
+            <span class="badge badge-${p.estado}">${lbl}</span>
+          </div>`;
+      });
+      html += '</div>';
+    }
+
+    document.getElementById('ficha-body').innerHTML = html;
+  } catch (err) {
+    console.error('Error ficha cliente:', err);
+    document.getElementById('ficha-body').innerHTML = '<p class="text-muted" style="padding:1rem">Error al cargar los datos.</p>';
+  }
 }
