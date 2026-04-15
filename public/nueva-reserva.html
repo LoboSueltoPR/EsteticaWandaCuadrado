@@ -197,7 +197,32 @@
         document.getElementById('btn-text').textContent = 'Procesando...';
 
         try {
-          // 1. Verificar disponibilidad
+          // 1. Verificar límite de reservas activas (máx. 3 futuras)
+          const today = getTodayStr();
+          const now   = new Date();
+          const activeSnap = await db.collection('reservations')
+            .where('userId', '==', user.uid)
+            .get();
+          let activeCount = 0;
+          activeSnap.forEach(doc => {
+            const r = doc.data();
+            if (r.fecha < today) return; // pasadas no cuentan
+            if (r.estado === 'pendiente_pago') {
+              // solo si no venció aún
+              const exp = r.expiraAt;
+              const expDate = exp ? (exp.toDate ? exp.toDate() : new Date(exp)) : null;
+              if (!expDate || expDate <= now) return;
+            }
+            if (['pendiente_pago', 'pendiente', 'confirmada'].includes(r.estado)) activeCount++;
+          });
+          if (activeCount >= 3) {
+            showAlert('reserva-alert', 'Ya tenés 3 turnos reservados. Cancelá uno antes de agregar otro.', 'warning');
+            btnPagar.disabled = false;
+            document.getElementById('btn-text').textContent = 'Pagar seña con Mercado Pago';
+            return;
+          }
+
+          // 2. Verificar disponibilidad del horario
           const occupied = await getOccupiedSlots(fechaInput.value);
           if (occupied.includes(hora)) {
             showAlert('reserva-alert', 'Ese horario acaba de ser reservado. Por favor elegí otro.');
@@ -208,7 +233,7 @@
             return;
           }
 
-          // 2. Leer config de Mercado Pago desde Firestore
+          // 4. Leer config de Mercado Pago desde Firestore
           const mpDoc = await db.collection('config').doc('mp').get();
           if (!mpDoc.exists || !mpDoc.data().access_token) {
             showAlert('reserva-alert', 'Los pagos aún no están configurados. Contactá al local.');
@@ -218,7 +243,7 @@
           }
           const { access_token, sandbox } = mpDoc.data();
 
-          // 3. Crear reserva en Firestore con estado pendiente_pago
+          // 5. Crear reserva en Firestore con estado pendiente_pago
           const senia     = Math.round(precio * 0.10);
           const expiraAt  = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -240,7 +265,7 @@
             updatedAt:       firebase.firestore.FieldValue.serverTimestamp()
           });
 
-          // 4. Crear preferencia en Mercado Pago
+          // 6. Crear preferencia en Mercado Pago
           const base = window.location.href.replace('nueva-reserva.html', '').replace(/\?.*$/, '');
 
           const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -278,7 +303,7 @@
           const preference = await mpResponse.json();
           const initPoint  = sandbox ? preference.sandbox_init_point : preference.init_point;
 
-          // 5. Guardar initPoint para poder reanudar si se cierra la ventana
+          // 7. Guardar initPoint para poder reanudar si se cierra la ventana
           await reservaRef.update({ initPoint });
 
           // 6. Redirigir al checkout de MP

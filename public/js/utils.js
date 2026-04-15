@@ -226,6 +226,17 @@ async function getOccupiedSlots(fecha, excludeReservationId = null) {
     console.error('Error al consultar reservas:', err);
   }
 
+  // 3. Para hoy: bloquear horarios ya pasados y los que quedan dentro de 2 horas
+  if (fecha === getTodayStr()) {
+    const now = new Date();
+    const cutoff = now.getTime() + 2 * 60 * 60 * 1000; // ahora + 2h
+    generateTimeSlots(9, 20, 60).forEach(slot => {
+      const [h, m] = slot.split(':').map(Number);
+      const slotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+      if (slotDate.getTime() < cutoff) occupied.add(slot);
+    });
+  }
+
   return Array.from(occupied);
 }
 
