@@ -79,8 +79,8 @@ async function loadAgendaHoy() {
         <div class="agenda-item">
           <div class="agenda-hora">${r.hora}</div>
           <div class="agenda-info">
-            <strong>${r.servicioNombre}</strong>
-            <span>${r.nombreUsuario || r.emailUsuario}</span>
+            <strong>${escapeHtml(r.servicioNombre)}</strong>
+            <span>${escapeHtml(r.nombreUsuario || r.emailUsuario)}</span>
           </div>
           <span class="badge badge-${r.estado}">${r.estado}</span>
         </div>`;
@@ -154,12 +154,12 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
             <td><strong>${r.hora}</strong></td>
             <td>
               ${r.userId
-                ? `<button class="btn-cliente" onclick="abrirFichaCliente('${r.userId}')">${r.nombreUsuario || 'Sin nombre'}</button>`
-                : `<span>${r.nombreUsuario || 'Sin nombre'}</span>`}
-              <br><small class="text-muted">${r.emailUsuario || ''}</small>
-              ${r.telefonoUsuario ? `<br><small class="text-muted">📱 ${r.telefonoUsuario}</small>` : ''}
+                ? `<button class="btn-cliente" onclick="abrirFichaCliente('${r.userId}')">${escapeHtml(r.nombreUsuario || 'Sin nombre')}</button>`
+                : `<span>${escapeHtml(r.nombreUsuario || 'Sin nombre')}</span>`}
+              <br><small class="text-muted">${escapeHtml(r.emailUsuario || '')}</small>
+              ${r.telefonoUsuario ? `<br><small class="text-muted">📱 ${escapeHtml(r.telefonoUsuario)}</small>` : ''}
             </td>
-            <td>${r.servicioNombre}</td>
+            <td>${escapeHtml(r.servicioNombre)}</td>
             <td><span class="badge badge-${r.estado}">${estadoLabel}</span></td>
             <td>
               <div class="btn-group">
@@ -343,8 +343,8 @@ async function loadAllServices() {
       const s = doc.data();
       html += `
           <tr>
-            <td>${s.nombre}</td>
-            <td style="text-transform:capitalize">${s.categoria}</td>
+            <td>${escapeHtml(s.nombre)}</td>
+            <td style="text-transform:capitalize">${escapeHtml(s.categoria)}</td>
             <td>${s.duracionMin} min</td>
             <td>${s.precio ? `$${s.precio.toLocaleString('es-AR')}` : '<span class="text-muted">Sin precio</span>'}</td>
             <td><span class="badge ${s.activo ? 'badge-confirmada' : 'badge-cancelada'}">${s.activo ? 'Sí' : 'No'}</span></td>
@@ -678,14 +678,14 @@ async function loadAllOrders(filtroEstado = 'todos') {
       }
 
       const clienteBtn = p.userId
-        ? '<button class="btn-cliente" onclick="abrirFichaCliente(\'' + p.userId + '\')">' + (p.nombreUsuario || 'Sin nombre') + '</button>'
-        : '<span>' + (p.nombreUsuario || 'Sin nombre') + '</span>';
+        ? '<button class="btn-cliente" onclick="abrirFichaCliente(\'' + p.userId + '\')">' + escapeHtml(p.nombreUsuario || 'Sin nombre') + '</button>'
+        : '<span>' + escapeHtml(p.nombreUsuario || 'Sin nombre') + '</span>';
 
       html += '<tr>' +
         '<td style="font-size:.82rem">' + fecha + '</td>' +
-        '<td>' + clienteBtn + '<br><small class="text-muted">' + (p.emailUsuario || '') + '</small>' +
-        (p.telefonoUsuario ? '<br><small class="text-muted">📱 ' + p.telefonoUsuario + '</small>' : '') + '</td>' +
-        '<td><strong>' + p.productoNombre + '</strong></td>' +
+        '<td>' + clienteBtn + '<br><small class="text-muted">' + escapeHtml(p.emailUsuario || '') + '</small>' +
+        (p.telefonoUsuario ? '<br><small class="text-muted">📱 ' + escapeHtml(p.telefonoUsuario) + '</small>' : '') + '</td>' +
+        '<td><strong>' + escapeHtml(p.productoNombre) + '</strong></td>' +
         '<td>$' + (p.senia || 0).toLocaleString('es-AR') + '</td>' +
         '<td>$' + saldo.toLocaleString('es-AR') + '</td>' +
         '<td><span class="badge badge-' + p.estado + '">' + p.estado + '</span></td>' +
@@ -792,8 +792,8 @@ async function loadAllProducts() {
     prods.forEach(p => {
       const docId = p._id;
       html += '<tr>' +
-        '<td><strong>' + p.nombre + '</strong></td>' +
-        '<td>' + p.categoria + '</td>' +
+        '<td><strong>' + escapeHtml(p.nombre) + '</strong></td>' +
+        '<td>' + escapeHtml(p.categoria) + '</td>' +
         '<td>' + (p.ml ? p.ml + 'cc' : '—') + '</td>' +
         '<td>' + (p.precio ? '$' + p.precio.toLocaleString('es-AR') : '<span style="color:var(--color-warning)">Sin precio</span>') + '</td>' +
         '<td><span class="badge ' + (p.activo ? 'badge-confirmada' : 'badge-cancelada') + '">' + (p.activo ? 'Activo' : 'Inactivo') + '</span></td>' +
@@ -895,7 +895,7 @@ async function abrirFichaCliente(userId) {
   const waPhone = formatWAPhone(telefono);
   const contactBtns = telefono ? `
     <div class="ficha-contacto">
-      <a href="tel:${telefono}" class="btn btn-sm btn-secondary">📞 Llamar</a>
+      <a href="tel:${escapeHtml(telefono)}" class="btn btn-sm btn-secondary">📞 Llamar</a>
       <a href="${buildWAUrl(waPhone, 'Hola ' + nombre + '!')}" target="_blank" class="btn btn-sm btn-whatsapp">📱 WhatsApp</a>
     </div>` : '';
 
@@ -903,8 +903,8 @@ async function abrirFichaCliente(userId) {
     <div class="modal-box ficha-box">
       <div class="modal-header">
         <div>
-          <h3 style="margin-bottom:.1rem">${nombre}</h3>
-          <p style="font-size:.82rem;color:var(--color-text-muted);margin:0">${email}${telefono ? ' · 📱 ' + telefono : ''}</p>
+          <h3 style="margin-bottom:.1rem">${escapeHtml(nombre)}</h3>
+          <p style="font-size:.82rem;color:var(--color-text-muted);margin:0">${escapeHtml(email)}${telefono ? ' · 📱 ' + escapeHtml(telefono) : ''}</p>
         </div>
         <button class="modal-close" aria-label="Cerrar" onclick="document.getElementById('ficha-modal').remove()">✕</button>
       </div>
@@ -971,7 +971,7 @@ async function abrirFichaCliente(userId) {
         html += `
           <div class="ficha-item">
             <div class="ficha-item-info">
-              <strong>${r.servicioNombre}</strong>
+              <strong>${escapeHtml(r.servicioNombre)}</strong>
               <small class="text-muted">${formatDate(r.fecha)} · ${r.hora} hs</small>
             </div>
             <span class="badge badge-${r.estado}">${lbl}</span>
@@ -989,7 +989,7 @@ async function abrirFichaCliente(userId) {
         html += `
           <div class="ficha-item">
             <div class="ficha-item-info">
-              <strong>${p.productoNombre}</strong>
+              <strong>${escapeHtml(p.productoNombre)}</strong>
               <small class="text-muted">${formatDateTime(p.createdAt)}</small>
             </div>
             <span class="badge badge-${p.estado}">${lbl}</span>

@@ -1,6 +1,11 @@
 node_modules/
 .env
+functions/.env
 .firebase/
 *.log
 .DS_Store
 Thumbs.db
+
+# Credenciales Firebase — nunca subir al repo
+# Usar firebase-config.example.js como template
+public/js/firebase-config.js

@@ -204,7 +204,7 @@ async function loadMyReservations(containerId) {
         const initPoint = r.initPoint || '';
         html += `
           <tr style="background:#FFFBEB">
-            <td>${r.servicioNombre}</td>
+            <td>${escapeHtml(r.servicioNombre)}</td>
             <td>${formatDate(r.fecha)}</td>
             <td>${r.hora}</td>
             <td>
@@ -220,7 +220,7 @@ async function loadMyReservations(containerId) {
       } else {
         html += `
           <tr>
-            <td>${r.servicioNombre}</td>
+            <td>${escapeHtml(r.servicioNombre)}</td>
             <td>${formatDate(r.fecha)}</td>
             <td>${r.hora}</td>
             <td><span class="badge badge-${r.estado}">${r.estado}</span></td>
@@ -285,7 +285,7 @@ async function loadTreatmentHistory(containerId) {
       html += `
         <div class="historial-item">
           <div class="historial-fecha">${formatDate(r.fecha)} · ${r.hora} hs</div>
-          <div class="historial-servicio">${r.servicioNombre}</div>
+          <div class="historial-servicio">${escapeHtml(r.servicioNombre)}</div>
           <div class="historial-meta">
             <span class="badge badge-${r.estado}">${estadoLabel}</span>
             ${r.precioTotal ? `<span class="historial-precio">$${r.precioTotal.toLocaleString('es-AR')}</span>` : ''}
@@ -348,7 +348,7 @@ async function loadOrderHistory(containerId) {
       html += `
         <div class="historial-item">
           <div class="historial-fecha">${fecha}</div>
-          <div class="historial-servicio">${p.productoNombre}</div>
+          <div class="historial-servicio">${escapeHtml(p.productoNombre)}</div>
           <div class="historial-meta">
             <span class="badge badge-${p.estado}">${estadoLabel}</span>
             ${p.precio ? `<span class="historial-precio">$${p.precio.toLocaleString('es-AR')}</span>` : ''}
@@ -413,7 +413,7 @@ async function loadMyActiveOrders(containerId) {
         html += `
           <div class="historial-item" style="border-left:3px solid #f59e0b">
             <div class="historial-fecha">${formatDateTime(p.createdAt)}</div>
-            <div class="historial-servicio">${p.productoNombre}</div>
+            <div class="historial-servicio">${escapeHtml(p.productoNombre)}</div>
             <div class="historial-meta">
               <span class="badge" style="background:#f59e0b;color:#fff">Pago pendiente</span>
               <small style="color:#92400e;font-size:.75rem">Expira en ${minsLeft} min</small>
@@ -428,7 +428,7 @@ async function loadMyActiveOrders(containerId) {
         html += `
           <div class="historial-item">
             <div class="historial-fecha">${formatDateTime(p.createdAt)}</div>
-            <div class="historial-servicio">${p.productoNombre}</div>
+            <div class="historial-servicio">${escapeHtml(p.productoNombre)}</div>
             <div class="historial-meta">
               <span class="badge badge-pendiente">En preparación</span>
               <span class="historial-precio">Saldo: $${saldo.toLocaleString('es-AR')}</span>

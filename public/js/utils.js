@@ -72,6 +72,16 @@ function formatDateTime(timestamp) {
   });
 }
 
+// ─── Escapar HTML para prevenir XSS ───
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 // ─── Fecha de hoy en formato YYYY-MM-DD ───
 function getTodayStr() {
   const now = new Date();

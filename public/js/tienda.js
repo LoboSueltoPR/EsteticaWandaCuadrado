@@ -55,13 +55,13 @@ async function loadProductos(containerId, categoriaFiltro = 'todos') {
       card.innerHTML = `
         <div class="producto-img">🧴</div>
         <div class="producto-body">
-          <div class="producto-cat">${p.categoria}</div>
-          <h3 class="producto-nombre">${p.nombre}</h3>
+          <div class="producto-cat">${escapeHtml(p.categoria)}</div>
+          <h3 class="producto-nombre">${escapeHtml(p.nombre)}</h3>
           ${p.ml ? `<span class="producto-ml">${p.ml}cc</span>` : ''}
-          ${p.descripcion ? `<p class="producto-desc">${p.descripcion}</p>` : ''}
+          ${p.descripcion ? `<p class="producto-desc">${escapeHtml(p.descripcion)}</p>` : ''}
           ${ingredientes.length ? `
             <ul class="ingredientes-list">
-              ${ingredientes.map(i => `<li>${i}</li>`).join('')}
+              ${ingredientes.map(i => `<li>${escapeHtml(i)}</li>`).join('')}
             </ul>` : ''}
           <div class="producto-footer">
             ${tienePrecio
