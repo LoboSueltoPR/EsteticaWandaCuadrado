@@ -378,7 +378,7 @@ function showServiceModal(data = null, docId = null) {
   const isEdit = !!docId;
 
   const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
+  overlay.className = 'modal-overlay active';
   overlay.id = 'service-modal';
   overlay.innerHTML = `
     <div class="modal">

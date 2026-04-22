@@ -313,8 +313,12 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
           showAlert('disponibilidad-alert', 'Configuración guardada.', 'success');
-        } catch {
-          showAlert('disponibilidad-alert', 'Error al guardar.');
+        } catch (err) {
+          console.error('Error al guardar disponibilidad:', err);
+          const msg = err?.code === 'permission-denied'
+            ? 'Sin permisos. Verificá que tu usuario tenga rol "admin" en Firestore.'
+            : `Error: ${err?.message || err}`;
+          showAlert('disponibilidad-alert', msg);
         }
       });
     });

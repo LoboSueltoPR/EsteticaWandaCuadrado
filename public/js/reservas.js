@@ -48,7 +48,19 @@ async function renderTimeSlots(containerId, fecha, excludeReservationId = null) 
 
   container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Cargando horarios...</div>';
 
-  const allSlots = generateTimeSlots(9, 20, 60);
+  // Leer config de disponibilidad (editable desde admin)
+  let horaInicio = 9, horaFin = 20, intervaloMin = 60;
+  try {
+    const cfgDoc = await db.collection('config').doc('disponibilidad').get();
+    if (cfgDoc.exists) {
+      const cfg = cfgDoc.data();
+      horaInicio  = cfg.horaInicio  ?? horaInicio;
+      horaFin     = cfg.horaFin     ?? horaFin;
+      intervaloMin = cfg.intervaloMin ?? intervaloMin;
+    }
+  } catch (err) { console.warn('Sin config disponibilidad, usando defaults:', err.message); }
+
+  const allSlots = generateTimeSlots(horaInicio, horaFin, intervaloMin);
   const occupied = await getOccupiedSlots(fecha, excludeReservationId);
 
   container.innerHTML = '';
