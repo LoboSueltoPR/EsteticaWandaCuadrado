@@ -32,7 +32,12 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update: if request.auth != null &&
         (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if request.auth != null && isAdmin();
+      // Dueño puede borrar solo sus reservas pendiente_pago (limpieza de abandonos).
+      // Admin puede borrar cualquiera.
+      allow delete: if request.auth != null && (
+        isAdmin() ||
+        (resource.data.userId == request.auth.uid && resource.data.estado == 'pendiente_pago')
+      );
     }
 
     // ─── Configuración ───
@@ -62,7 +67,11 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update: if request.auth != null &&
         (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if request.auth != null && isAdmin();
+      // Dueño puede borrar solo sus pedidos pendiente_pago (limpieza de abandonos).
+      allow delete: if request.auth != null && (
+        isAdmin() ||
+        (resource.data.userId == request.auth.uid && resource.data.estado == 'pendiente_pago')
+      );
     }
 
     // ─── Función auxiliar: verificar si el usuario es admin ───

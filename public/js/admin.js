@@ -436,7 +436,13 @@ function showServiceModal(data = null, docId = null) {
       invalidateCachePrefix('services:');
       overlay.remove();
       loadAllServices();
-    } catch { showAlert('service-modal-alert', 'Error al guardar.'); }
+    } catch (err) {
+      console.error('Error al guardar servicio:', err);
+      const msg = err?.code === 'permission-denied'
+        ? 'Sin permisos. Verificá que tu usuario tenga rol "admin" en Firestore.'
+        : `Error al guardar: ${err?.message || err}`;
+      showAlert('service-modal-alert', msg);
+    }
   });
 }
 

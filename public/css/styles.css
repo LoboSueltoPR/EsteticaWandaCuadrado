@@ -376,28 +376,44 @@ tbody tr:hover {
 
 /* ─── Badges / Estado ─── */
 .badge {
-  display: inline-block;
-  padding: 0.2rem 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.75rem;
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: capitalize;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+
+.badge::before {
+  font-size: 0.72rem;
+  line-height: 1;
 }
 
 .badge-pendiente {
-  background: var(--color-warning);
-  color: #5D4A00;
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #FCD34D;
 }
+.badge-pendiente::before { content: '⏳'; }
 
 .badge-confirmada {
-  background: var(--color-success);
-  color: var(--color-white);
+  background: #DCFCE7;
+  color: #14532D;
+  border-color: #86EFAC;
 }
+.badge-confirmada::before { content: '✓'; font-weight: 700; }
 
 .badge-cancelada {
-  background: var(--color-danger);
-  color: var(--color-white);
+  background: #FEE2E2;
+  color: #7F1D1D;
+  border-color: #FCA5A5;
 }
+.badge-cancelada::before { content: '✕'; font-weight: 700; }
 
 .btn-whatsapp {
   background: #25D366;
@@ -407,9 +423,11 @@ tbody tr:hover {
 .btn-whatsapp:hover { background: #1ebe5d; border-color: #1ebe5d; }
 
 .badge-pendiente_pago {
-  background: #E3F2FD;
-  color: #1565C0;
+  background: #FFEDD5;
+  color: #9A3412;
+  border-color: #FDBA74;
 }
+.badge-pendiente_pago::before { content: '⏱'; }
 
 /* ─── Tienda / Mis Cremas ─── */
 .tienda-hero {
@@ -573,7 +591,12 @@ tbody tr:hover {
 
 .modal-nota { font-size: .78rem; color: var(--color-text-muted); text-align: center; margin-bottom: 1rem; line-height: 1.5; }
 
-.badge-completado { background: #E8F5E9; color: #2E7D32; }
+.badge-completado {
+  background: #F1F5F9;
+  color: #334155;
+  border-color: #CBD5E1;
+}
+.badge-completado::before { content: '✔'; font-weight: 700; }
 
 /* ─── Botón nombre de cliente (tabla admin) ─── */
 .btn-cliente {

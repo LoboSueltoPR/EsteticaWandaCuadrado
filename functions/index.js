@@ -179,9 +179,9 @@ exports.mpWebhook = functions.https.onRequest(async (req, res) => {
       if (!reservaId) { res.sendStatus(200); return; }
 
       if (pago.status === 'approved') {
-        // Pago aprobado → activar reserva
+        // Pago aprobado → confirmar reserva (mismo estado que pago-exitoso.html)
         await db.collection('reservations').doc(reservaId).update({
-          estado:        'pendiente',
+          estado:        'confirmada',
           paymentId:     String(data.id),
           paymentStatus: 'approved',
           updatedAt:     admin.firestore.FieldValue.serverTimestamp()

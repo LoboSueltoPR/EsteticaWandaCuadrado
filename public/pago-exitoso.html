@@ -122,6 +122,31 @@
           const doc = await db.collection('reservations').doc(reservaId).get();
           const r   = doc.exists ? doc.data() : null;
 
+          // Limpiar duplicados pendiente_pago del mismo slot (fecha+hora)
+          // — si el usuario creó múltiples intentos para el mismo turno,
+          //   solo queda la reserva pagada.
+          if (r) {
+            try {
+              const dupSnap = await db.collection('reservations')
+                .where('userId', '==', r.userId)
+                .where('estado', '==', 'pendiente_pago')
+                .get();
+              const batch = db.batch();
+              let deleted = 0;
+              dupSnap.forEach(d => {
+                if (d.id === reservaId) return;
+                const dr = d.data();
+                if (dr.fecha === r.fecha && dr.hora === r.hora) {
+                  batch.delete(d.ref);
+                  deleted++;
+                }
+              });
+              if (deleted > 0) await batch.commit();
+            } catch (cleanupErr) {
+              console.warn('No se pudieron limpiar duplicados:', cleanupErr.message);
+            }
+          }
+
           if (r) {
             const saldoRestante = (r.precioTotal || 0) - (r.senia || 0);
             const waMsg  = buildReservaConfirmMessage(r);
