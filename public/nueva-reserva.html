@@ -254,6 +254,7 @@
             telefonoUsuario: userData?.telefono || '',
             servicioId:      servicioSelect.value,
             servicioNombre:  opt.dataset.nombre,
+            duracionMin:     parseInt(opt.dataset.duracion || 60),
             fecha:           fechaInput.value,
             hora:            hora,
             estado:          'pendiente_pago',

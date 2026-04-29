@@ -422,6 +422,13 @@ tbody tr:hover {
 }
 .btn-whatsapp:hover { background: #1ebe5d; border-color: #1ebe5d; }
 
+.btn-gcal {
+  background: #fff;
+  color: #1a73e8 !important;
+  border: 1.5px solid #1a73e8;
+}
+.btn-gcal:hover { background: #e8f0fe; }
+
 .badge-pendiente_pago {
   background: #FFEDD5;
   color: #9A3412;

@@ -163,6 +163,7 @@ async function loadAllReservations(filtroEstado = 'todos', filtroFecha = '') {
             <td><span class="badge badge-${r.estado}">${estadoLabel}</span></td>
             <td>
               <div class="btn-group">
+                <a class="btn btn-sm btn-gcal" href="${buildGoogleCalendarUrl(r)}" target="_blank" title="Agregar al calendario">📅</a>
                 ${waLink ? `<a class="btn btn-sm btn-whatsapp" href="${waLink}" target="_blank" title="Enviar recordatorio por WhatsApp">📱 Recordatorio</a>` : ''}
                 ${puedeCompletar ? `<button class="btn btn-sm btn-success" onclick="completeReservation('${r.id}')">✓ Realizado</button>` : ''}
                 ${r.estado !== 'cancelada' && r.estado !== 'completado' ? `<button class="btn btn-sm btn-danger" onclick="cancelReservationAdmin('${r.id}')">Cancelar</button>` : ''}

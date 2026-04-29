@@ -72,6 +72,36 @@ function formatDateTime(timestamp) {
   });
 }
 
+// ─── Google Calendar: generar URL para agregar evento ───
+// Abre Google Calendar pre-cargado con los datos del turno (no requiere API ni login previo).
+function buildGoogleCalendarUrl(reserva) {
+  const duracionMin = reserva.duracionMin || 60;
+
+  // Parsear fecha (YYYY-MM-DD) y hora (HH:MM)
+  const [y, mo, d]  = reserva.fecha.split('-').map(Number);
+  const [hh, mm]    = reserva.hora.split(':').map(Number);
+
+  // Formatear inicio: YYYYMMDDTHHmmss
+  const pad = n => String(n).padStart(2, '0');
+  const startDt = `${y}${pad(mo)}${pad(d)}T${pad(hh)}${pad(mm)}00`;
+
+  // Calcular fin sumando duracionMin
+  const end  = new Date(y, mo - 1, d, hh, mm + duracionMin);
+  const endDt = `${end.getFullYear()}${pad(end.getMonth()+1)}${pad(end.getDate())}T${pad(end.getHours())}${pad(end.getMinutes())}00`;
+
+  const nombre  = reserva.nombreUsuario  ? `\nCliente: ${reserva.nombreUsuario}`  : '';
+  const telefono = reserva.telefonoUsuario ? `\nTel: ${reserva.telefonoUsuario}` : '';
+  const senia   = reserva.senia          ? `\nSeña pagada: $${reserva.senia.toLocaleString('es-AR')}` : '';
+
+  const title   = encodeURIComponent(`Turno — ${reserva.servicioNombre}`);
+  const details = encodeURIComponent(
+    `Servicio: ${reserva.servicioNombre}${nombre}${telefono}${senia}\n\nWanda Cuadrado Estética`
+  );
+  const location = encodeURIComponent('Wanda Cuadrado Estética, Bahía Blanca');
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDt}/${endDt}&details=${details}&location=${location}&sf=true&output=xml`;
+}
+
 // ─── Escapar HTML para prevenir XSS ───
 function escapeHtml(str) {
   return String(str || '')
